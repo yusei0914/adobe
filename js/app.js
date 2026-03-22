@@ -6,23 +6,23 @@ const App = {
   plans: [],
   currentPlan: null,
 
-  async init() {
-    // Init Supabase
-    Auth.init();
-
-    // Check session
-    const user = await Auth.getSession();
-
-    if (user) {
-      this.onLoggedIn(user);
-    } else {
+async init() {
+    try {
+      Auth.init();
+      const user = await Auth.getSession();
+      document.getElementById('loading-screen').style.display = 'none';
+      if (user) {
+        this.onLoggedIn(user);
+      } else {
+        UI.showScreen('login-screen');
+      }
+    } catch (e) {
+      console.error('Init error:', e);
+      document.getElementById('loading-screen').style.display = 'none';
       UI.showScreen('login-screen');
     }
-
-    // Event listeners
     this.bindEvents();
   },
-
   bindEvents() {
     // LINE login button
     document.getElementById('btn-line-login')?.addEventListener('click', () => {
