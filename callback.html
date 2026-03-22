@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ログイン中...</title>
+<style>
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+  background: #f2f2f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  color: #1c1c1e;
+}
+.loading {
+  text-align: center;
+}
+.loading .emoji { font-size: 40px; margin-bottom: 12px; }
+.loading p { font-size: 14px; color: #8e8e93; }
+</style>
+</head>
+<body>
+<div class="loading">
+  <div class="emoji">🌆</div>
+  <p>ログイン中...</p>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script>
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const code = params.get('code');
+  const state = params.get('state');
+
+  // Verify state
+  const savedState = sessionStorage.getItem('line_state');
+  if (state !== savedState) {
+    alert('認証エラー。もう一度やり直してください。');
+    window.location.href = '/';
+    return;
+  }
+
+  if (code) {
+    try {
+      Auth.init();
+      await Auth.handleCallback(code);
+      window.location.href = '/';
+    } catch (e) {
+      console.error('Login error:', e);
+      alert('ログインに失敗しました。もう一度やり直してください。');
+      window.location.href = '/';
+    }
+  } else {
+    window.location.href = '/';
+  }
+})();
+</script>
+</body>
+</html>

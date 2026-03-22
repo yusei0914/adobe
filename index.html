@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f2f2f7">
+<link rel="manifest" href="manifest.json">
+<title>都市OS</title>
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div id="app" class="phone">
+
+  <!-- Loading -->
+  <div id="loading-screen" class="screen active" style="display:flex;align-items:center;justify-content:center;min-height:100vh;">
+    <div style="text-align:center;">
+      <div style="font-size:40px;margin-bottom:12px;">🌆</div>
+      <div style="font-size:14px;color:#8e8e93;">読み込み中...</div>
+    </div>
+  </div>
+
+  <!-- Login -->
+  <div id="login-screen" class="screen">
+    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:0 32px;">
+      <div style="font-size:56px;margin-bottom:16px;">🌆</div>
+      <h1 style="font-size:28px;font-weight:800;margin-bottom:4px;">都市OS</h1>
+      <p style="font-size:14px;color:#8e8e93;margin-bottom:40px;text-align:center;">友達の予定に乗るだけ。<br>誘うのも、行くのも、ワンタップ。</p>
+      <button id="btn-line-login" class="btn-large" style="background:#06c755;color:white;display:flex;align-items:center;justify-content:center;gap:8px;">
+        <span style="font-size:20px;">💬</span> LINEでログイン
+      </button>
+      <p style="font-size:11px;color:#aeaeb2;margin-top:12px;text-align:center;">ログインすると利用規約に同意したことになります</p>
+    </div>
+  </div>
+
+  <!-- Home -->
+  <div id="home-screen" class="screen">
+    <div class="screen-header">
+      <h1>今日やれること</h1>
+      <div class="sub" id="home-subtitle">友達やコミュニティの予定</div>
+    </div>
+
+    <!-- Post input -->
+    <div class="post-card" id="btn-open-post">
+      <div class="post-input">
+        <div class="avatar-sm" id="home-avatar">Y</div>
+        <div class="placeholder">誰か一緒にやらない？</div>
+      </div>
+    </div>
+
+    <!-- Plans list -->
+    <div id="plans-list">
+      <!-- Populated by JS -->
+    </div>
+
+    <div id="plans-empty" style="display:none;text-align:center;padding:40px 0;">
+      <div style="font-size:40px;margin-bottom:12px;">🎈</div>
+      <p style="font-size:14px;color:#8e8e93;">まだ予定がないよ。<br>最初に誘ってみよう！</p>
+    </div>
+  </div>
+
+  <!-- Detail -->
+  <div id="detail-screen" class="screen">
+    <div class="screen-header">
+      <span class="back-link" id="btn-back-home">← ホーム</span>
+      <h1 id="detail-title"></h1>
+      <div class="sub" id="detail-who"></div>
+    </div>
+
+    <div class="card" id="detail-countdown-card" style="text-align:center;padding:24px;">
+      <div class="countdown-num" id="detail-countdown"></div>
+      <div style="font-size:13px;color:#8e8e93;margin-top:4px;">開始まで</div>
+    </div>
+
+    <div class="card" id="detail-info">
+      <div class="detail-row">
+        <span class="detail-icon">📅</span>
+        <div><div class="detail-main" id="detail-time"></div><div class="detail-sub" id="detail-duration"></div></div>
+      </div>
+      <div class="detail-row">
+        <span class="detail-icon">📍</span>
+        <div><div class="detail-main" id="detail-place"></div><div class="detail-sub" id="detail-place-sub"></div></div>
+      </div>
+      <div class="detail-row">
+        <span class="detail-icon">👥</span>
+        <div><div class="detail-main" id="detail-people-count"></div><div class="detail-sub" id="detail-people-sub"></div></div>
+      </div>
+      <div class="detail-row">
+        <span class="detail-icon">💬</span>
+        <div><div class="detail-main" id="detail-note"></div></div>
+      </div>
+      <div class="detail-row" style="border-bottom:none;">
+        <span class="detail-icon">🔔</span>
+        <div><div class="detail-main">30分前にお知らせ</div><div class="detail-sub">場所への行き方も届く</div></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">来る人</span></div>
+      <div id="detail-members"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">雰囲気</span></div>
+      <div id="detail-tags" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;"></div>
+      <p id="detail-vibe-text" style="font-size:12px;color:#8e8e93;"></p>
+    </div>
+
+    <div id="detail-actions"></div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- Post Modal -->
+  <div class="modal-overlay" id="modal-post">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div class="post-modal-header">
+        <div class="avatar-sm" id="post-avatar">Y</div>
+        <input class="post-modal-input" id="post-title-input" placeholder="何やる？（例: カラオケ行かない？）" />
+      </div>
+      <textarea class="post-textarea" id="post-desc-input" placeholder="詳細（任意）"></textarea>
+      <div class="post-options">
+        <div class="post-option">
+          <span class="icon">📅</span>
+          <div style="flex:1;">
+            <div class="text">いつ？</div>
+            <input type="datetime-local" id="post-datetime" class="post-option-input">
+          </div>
+        </div>
+        <div class="post-option">
+          <span class="icon">📍</span>
+          <div style="flex:1;">
+            <div class="text">どこで？</div>
+            <input type="text" id="post-location" placeholder="場所（任意）" class="post-option-input">
+          </div>
+        </div>
+        <div class="post-option">
+          <span class="icon">👥</span>
+          <div style="flex:1;">
+            <div class="text">何人くらい？</div>
+            <select id="post-max-people" class="post-option-input">
+              <option value="4">〜4人</option>
+              <option value="8" selected>〜8人</option>
+              <option value="12">〜12人</option>
+              <option value="20">〜20人</option>
+            </select>
+          </div>
+        </div>
+        <div class="post-option">
+          <span class="icon">👋</span>
+          <div style="flex:1;">
+            <div class="text">誰が見れる？</div>
+            <select id="post-visibility" class="post-option-input">
+              <option value="friends">友達のみ</option>
+              <option value="friends_of_friends" selected>友達の友達まで</option>
+              <option value="anyone">誰でも</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="post-tags-section">
+        <div class="text" style="font-size:13px;font-weight:600;margin-bottom:8px;">タグ（タップで追加）</div>
+        <div id="post-tags" style="display:flex;flex-wrap:wrap;gap:6px;">
+          <span class="tag-selectable" data-tag="初心者OK">初心者OK</span>
+          <span class="tag-selectable" data-tag="ひとりで来てOK">ひとりで来てOK</span>
+          <span class="tag-selectable" data-tag="途中参加OK">途中参加OK</span>
+          <span class="tag-selectable" data-tag="手ぶらOK">手ぶらOK</span>
+          <span class="tag-selectable" data-tag="ガチじゃない">ガチじゃない</span>
+          <span class="tag-selectable" data-tag="静かめ">静かめ</span>
+        </div>
+      </div>
+      <button class="btn-large btn-join" id="btn-post-submit">誘う</button>
+    </div>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="modal-confirm">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div id="modal-confirm-content"></div>
+    </div>
+  </div>
+
+  <!-- Tab Bar -->
+  <div class="tabs" id="tab-bar" style="display:none;">
+    <div class="tab active" data-tab="home">
+      <span class="tab-icon">🏠</span>
+      <span class="tab-label">ホーム</span>
+    </div>
+    <div class="tab" data-tab="profile">
+      <span class="tab-icon">👤</span>
+      <span class="tab-label">自分</span>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/api.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/app.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js');
+}
+</script>
+</body>
+</html>

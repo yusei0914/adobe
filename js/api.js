@@ -1,0 +1,232 @@
+// ========================================
+// 都市OS - API (Supabase queries)
+// ========================================
+
+const API = {
+  get db() { return Auth.supabase; },
+
+  // ===== Plans =====
+
+  // 自分の友達 + 友達の友達の予定を取得
+  async getPlans() {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return [];
+
+    // Get plans that are open and in the future
+    const { data: plans, error } = await this.db
+      .from('plans_with_counts')
+      .select('*')
+      .eq('status', 'open')
+      .gte('starts_at', new Date().toISOString())
+      .order('starts_at', { ascending: true });
+
+    if (error) { console.error('getPlans error:', error); return []; }
+
+    // For each plan, get participants
+    const enriched = await Promise.all(plans.map(async (plan) => {
+      const participants = await this.getParticipants(plan.id);
+      const myStatus = participants.find(p => p.user_id === userId)?.status || null;
+      const tags = await this.getPlanTags(plan.id);
+      const creatorRelation = await this.getRelation(userId, plan.creator_id);
+
+      return {
+        ...plan,
+        participants,
+        my_status: myStatus,
+        tags,
+        creator_relation: creatorRelation
+      };
+    }));
+
+    return enriched;
+  },
+
+  // 予定を作成
+  async createPlan({ title, description, location_name, location_detail, starts_at, duration_minutes, max_people, visibility, note, tags }) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return null;
+
+    const { data: plan, error } = await this.db
+      .from('plans')
+      .insert({
+        creator_id: userId,
+        title,
+        description,
+        location_name,
+        location_detail,
+        starts_at,
+        duration_minutes: duration_minutes || CONFIG.DEFAULT_DURATION,
+        max_people: max_people || CONFIG.DEFAULT_MAX_PEOPLE,
+        visibility: visibility || 'friends_of_friends',
+        note,
+      })
+      .select()
+      .single();
+
+    if (error) { console.error('createPlan error:', error); return null; }
+
+    // Add tags
+    if (tags && tags.length > 0) {
+      await this.db.from('plan_tags').insert(
+        tags.map(tag => ({ plan_id: plan.id, tag }))
+      );
+    }
+
+    // Creator auto-joins
+    await this.join(plan.id);
+
+    return plan;
+  },
+
+  // ===== Participations =====
+
+  async join(planId) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return null;
+
+    const { data, error } = await this.db
+      .from('participations')
+      .upsert({
+        plan_id: planId,
+        user_id: userId,
+        status: 'going'
+      }, { onConflict: 'plan_id,user_id' })
+      .select()
+      .single();
+
+    if (error) console.error('join error:', error);
+    return data;
+  },
+
+  async markInterested(planId) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return null;
+
+    const { data, error } = await this.db
+      .from('participations')
+      .upsert({
+        plan_id: planId,
+        user_id: userId,
+        status: 'interested'
+      }, { onConflict: 'plan_id,user_id' })
+      .select()
+      .single();
+
+    if (error) console.error('markInterested error:', error);
+    return data;
+  },
+
+  async cancelParticipation(planId) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return null;
+
+    const { error } = await this.db
+      .from('participations')
+      .update({ status: 'cancelled' })
+      .eq('plan_id', planId)
+      .eq('user_id', userId);
+
+    if (error) console.error('cancel error:', error);
+  },
+
+  async getParticipants(planId) {
+    const { data, error } = await this.db
+      .from('participations')
+      .select('*, users(id, display_name, avatar_url)')
+      .eq('plan_id', planId)
+      .in('status', ['going', 'interested']);
+
+    if (error) { console.error('getParticipants error:', error); return []; }
+    return data || [];
+  },
+
+  // ===== Tags =====
+
+  async getPlanTags(planId) {
+    const { data, error } = await this.db
+      .from('plan_tags')
+      .select('tag')
+      .eq('plan_id', planId);
+
+    if (error) return [];
+    return (data || []).map(t => t.tag);
+  },
+
+  // ===== Friends =====
+
+  async getFriends() {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return [];
+
+    const { data, error } = await this.db
+      .from('user_friends')
+      .select('friend_id, users!user_friends_friend_id_fkey(id, display_name, avatar_url)')
+      .eq('user_id', userId);
+
+    if (error) { console.error('getFriends error:', error); return []; }
+    return data || [];
+  },
+
+  async addFriend(friendId) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return null;
+
+    // Always store with smaller UUID first to avoid duplicates
+    const [a, b] = [userId, friendId].sort();
+
+    const { data, error } = await this.db
+      .from('friendships')
+      .insert({ user_a: a, user_b: b })
+      .select()
+      .single();
+
+    if (error) console.error('addFriend error:', error);
+    return data;
+  },
+
+  // ===== Relations =====
+
+  async getRelation(userId, otherUserId) {
+    if (userId === otherUserId) return 'self';
+
+    // Check direct friendship
+    const { data: direct } = await this.db
+      .from('user_friends')
+      .select('friend_id')
+      .eq('user_id', userId)
+      .eq('friend_id', otherUserId)
+      .maybeSingle();
+
+    if (direct) return 'friend';
+
+    // Check friend-of-friend
+    const { data: myFriends } = await this.db
+      .from('user_friends')
+      .select('friend_id')
+      .eq('user_id', userId);
+
+    if (myFriends) {
+      const friendIds = myFriends.map(f => f.friend_id);
+      const { data: mutual } = await this.db
+        .from('user_friends')
+        .select('user_id')
+        .eq('friend_id', otherUserId)
+        .in('user_id', friendIds)
+        .limit(1);
+
+      if (mutual && mutual.length > 0) {
+        // Find the mutual friend's name
+        const mutualFriendId = mutual[0].user_id;
+        const { data: mutualUser } = await this.db
+          .from('users')
+          .select('display_name')
+          .eq('id', mutualFriendId)
+          .single();
+
+        return mutualUser ? `${mutualUser.display_name}の友達` : '友達の友達';
+      }
+    }
+
+    return null;
+  }
+};

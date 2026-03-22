@@ -1,0 +1,245 @@
+// ========================================
+// 都市OS - UI Components
+// ========================================
+
+const UI = {
+
+  // Show/hide screens
+  showScreen(screenId) {
+    document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+    const screen = document.getElementById(screenId);
+    if (screen) {
+      screen.classList.add('active');
+      screen.querySelectorAll('.animate').forEach(el => {
+        el.style.animation = 'none';
+        el.offsetHeight;
+        el.style.animation = '';
+      });
+    }
+  },
+
+  // Toast notification
+  showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  },
+
+  // Modal
+  showModal(id) {
+    document.getElementById(id).classList.add('show');
+  },
+  hideModal(id) {
+    document.getElementById(id).classList.remove('show');
+  },
+
+  // ===== Render Plan Card =====
+  renderPlanCard(plan) {
+    const creator = plan.creator_name || '誰か';
+    const initial = getInitial(creator);
+    const color = getAvatarColor(plan.creator_id);
+    const relation = plan.creator_relation || '';
+    const timeLabel = this.formatTimeLabel(plan.starts_at);
+    const goingParticipants = (plan.participants || []).filter(p => p.status === 'going');
+    const friendNames = goingParticipants
+      .filter(p => p.user_id !== plan.creator_id && p.user_id !== Auth.currentUser?.id)
+      .slice(0, 3)
+      .map(p => p.users?.display_name || '?');
+
+    const isJoined = plan.my_status === 'going';
+    const spotsLeft = plan.max_people - (plan.going_count || 0);
+
+    const card = document.createElement('div');
+    card.className = `plan-card${isJoined ? ' joined' : ''}`;
+    card.id = `card-${plan.id}`;
+
+    card.innerHTML = `
+      <div class="plan-top">
+        <div class="plan-avatar" style="background:${color};">${initial}</div>
+        <div class="plan-who">
+          <div class="plan-name">${creator}</div>
+          <div class="plan-rel">${relation ? relation : ''}</div>
+        </div>
+        <div class="plan-time-badge">${timeLabel}</div>
+      </div>
+      <div class="plan-body">
+        <div class="plan-title">${plan.title}</div>
+        ${plan.description ? `<div class="plan-desc">${plan.description}</div>` : ''}
+        ${friendNames.length > 0 ? `
+          <div class="plan-friends">
+            <div class="plan-friends-avatars">
+              ${goingParticipants.slice(0, 3).map(p => {
+                const pName = p.users?.display_name || '?';
+                const pColor = getAvatarColor(p.user_id);
+                return `<div class="mini-avatar" style="background:${pColor};">${getInitial(pName)}</div>`;
+              }).join('')}
+            </div>
+            <span class="plan-friends-text">${friendNames.join('、')}${goingParticipants.length > 3 ? ` 他${goingParticipants.length - 3}人` : ''} が参加</span>
+          </div>
+        ` : ''}
+        <div class="plan-meta">
+          ${plan.location_name ? `<span>📍 ${plan.location_name}</span>` : ''}
+          <span>⏱ ${plan.duration_minutes || 90}分</span>
+          <span>👥 ${plan.going_count || 0}/${plan.max_people}人</span>
+        </div>
+        ${plan.tags && plan.tags.length > 0 ? `
+          <div class="plan-tags">
+            ${plan.tags.map(t => `<span class="tag">${t}</span>`).join('')}
+          </div>
+        ` : ''}
+        <div class="plan-actions" id="actions-${plan.id}">
+          ${isJoined ? `
+            <button class="btn btn-success" style="flex:2;" onclick="App.openDetail('${plan.id}')">行く予定 ✓ 詳細</button>
+          ` : `
+            <button class="btn btn-secondary" onclick="App.interested('${plan.id}')">気になる</button>
+            <button class="btn btn-primary" onclick="App.confirmJoin('${plan.id}')">行く</button>
+          `}
+        </div>
+      </div>
+    `;
+
+    return card;
+  },
+
+  // ===== Render Detail Screen =====
+  renderDetail(plan) {
+    const goingParticipants = (plan.participants || []).filter(p => p.status === 'going');
+
+    document.getElementById('detail-title').textContent = plan.title;
+    document.getElementById('detail-who').textContent = `${plan.creator_name} の予定`;
+    document.getElementById('detail-time').textContent = this.formatDateTime(plan.starts_at);
+    document.getElementById('detail-duration').textContent = `${plan.duration_minutes || 90}分`;
+    document.getElementById('detail-place').textContent = plan.location_name || '未定';
+    document.getElementById('detail-place-sub').textContent = plan.location_detail || '';
+    document.getElementById('detail-people-count').textContent = `${goingParticipants.length}人参加`;
+    document.getElementById('detail-people-sub').textContent = 'あなた含む';
+    document.getElementById('detail-note').textContent = plan.note || plan.description || '';
+
+    // Countdown
+    this.startCountdown(plan.starts_at);
+
+    // Members
+    document.getElementById('detail-members').innerHTML = goingParticipants.map(p => {
+      const name = p.users?.display_name || '?';
+      const color = getAvatarColor(p.user_id);
+      const isCreator = p.user_id === plan.creator_id;
+      const isSelf = p.user_id === Auth.currentUser?.id;
+      const label = isCreator ? '主催' : (isSelf ? 'あなた' : '');
+      return `
+        <div class="member-row">
+          <div class="member-avatar" style="background:${color};">${getInitial(name)}</div>
+          <div style="flex:1;">
+            <div class="member-name">${isSelf ? 'あなた' : name}</div>
+            ${label ? `<div class="member-rel">${label}</div>` : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    // Tags
+    document.getElementById('detail-tags').innerHTML = (plan.tags || [])
+      .map(t => `<span class="card-badge badge-green">${t}</span>`).join('');
+    document.getElementById('detail-vibe-text').textContent = '';
+
+    // Actions
+    document.getElementById('detail-actions').innerHTML = `
+      <button class="btn-large btn-danger" onclick="App.cancelJoin('${plan.id}')">やっぱやめる</button>
+      <p style="text-align:center;font-size:11px;color:#aeaeb2;margin-top:6px;">開始1時間前までキャンセルOK</p>
+    `;
+  },
+
+  // ===== Confirm Modal =====
+  renderConfirmModal(plan) {
+    const goingCount = plan.going_count || 0;
+    document.getElementById('modal-confirm-content').innerHTML = `
+      <div class="confirm-icon"><span class="emoji">${this.getPlanEmoji(plan.title)}</span></div>
+      <div class="confirm-title">${plan.title}</div>
+      <div class="confirm-sub">${plan.creator_name} の予定に参加</div>
+      <div class="confirm-details">
+        <div class="confirm-row"><span class="label">いつ</span><span class="value">${this.formatDateTime(plan.starts_at)}</span></div>
+        <div class="confirm-row"><span class="label">どこ</span><span class="value">${plan.location_name || '未定'}</span></div>
+        <div class="confirm-row"><span class="label">今の参加者</span><span class="value">${goingCount}人 → あなたで${goingCount + 1}人目</span></div>
+        ${plan.note ? `<div class="confirm-row"><span class="label">メモ</span><span class="value">${plan.note}</span></div>` : ''}
+      </div>
+      <div class="confirm-actions">
+        <button class="btn-large btn-join pulse" onclick="App.doJoin('${plan.id}')">行く</button>
+        <button class="btn-large btn-cancel" onclick="UI.hideModal('modal-confirm')">やめとく</button>
+      </div>
+    `;
+  },
+
+  renderSuccessModal(plan) {
+    document.getElementById('modal-confirm-content').innerHTML = `
+      <div class="success-view">
+        <div class="success-check">
+          <svg viewBox="0 0 36 36" fill="none"><path class="checkmark" d="M8 18 L15 25 L28 11" stroke="white" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </div>
+        <div class="success-title">行くことにした！</div>
+        <div class="success-sub">${plan.title}</div>
+        <div class="reminder-badge">🔔 30分前にお知らせ</div>
+        <div class="success-card">
+          <h4>あとは行くだけ</h4>
+          <p>時間になったら場所への行き方が届く。<br>持ち物も前日にリマインドするよ。</p>
+        </div>
+        <button class="btn-large btn-join" onclick="UI.hideModal('modal-confirm'); App.refreshPlans();">OK</button>
+      </div>
+    `;
+  },
+
+  // ===== Helpers =====
+
+  formatTimeLabel(dateStr) {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const hours = String(date.getHours()).padStart(2, '0');
+    const mins = String(date.getMinutes()).padStart(2, '0');
+
+    if (date.toDateString() === now.toDateString()) {
+      return `今日 ${hours}:${mins}`;
+    } else if (date.toDateString() === tomorrow.toDateString()) {
+      return `明日 ${hours}:${mins}`;
+    } else {
+      return `${date.getMonth() + 1}/${date.getDate()} ${hours}:${mins}`;
+    }
+  },
+
+  formatDateTime(dateStr) {
+    const date = new Date(dateStr);
+    const hours = String(date.getHours()).padStart(2, '0');
+    const mins = String(date.getMinutes()).padStart(2, '0');
+    return `${date.getMonth() + 1}月${date.getDate()}日 ${hours}:${mins}`;
+  },
+
+  countdownInterval: null,
+  startCountdown(dateStr) {
+    if (this.countdownInterval) clearInterval(this.countdownInterval);
+
+    const update = () => {
+      const diff = Math.max(0, new Date(dateStr) - new Date());
+      const h = Math.floor(diff / 3600000);
+      const m = Math.floor((diff % 3600000) / 60000);
+      const s = Math.floor((diff % 60000) / 1000);
+      const el = document.getElementById('detail-countdown');
+      if (el) el.textContent = `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    };
+
+    update();
+    this.countdownInterval = setInterval(update, 1000);
+  },
+
+  getPlanEmoji(title) {
+    const lower = title.toLowerCase();
+    if (lower.includes('フットサル') || lower.includes('サッカー') || lower.includes('スポーツ')) return '⚽';
+    if (lower.includes('ボドゲ') || lower.includes('ゲーム')) return '🎲';
+    if (lower.includes('勉強') || lower.includes('toeic') || lower.includes('TOEIC')) return '📚';
+    if (lower.includes('カラオケ')) return '🎤';
+    if (lower.includes('飲み')) return '🍻';
+    if (lower.includes('映画')) return '🎬';
+    if (lower.includes('ラーメン') || lower.includes('ご飯') || lower.includes('ランチ')) return '🍜';
+    return '🎈';
+  }
+};
