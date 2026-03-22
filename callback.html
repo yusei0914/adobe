@@ -14,9 +14,7 @@ body {
   min-height: 100vh;
   color: #1c1c1e;
 }
-.loading {
-  text-align: center;
-}
+.loading { text-align: center; }
 .loading .emoji { font-size: 40px; margin-bottom: 12px; }
 .loading p { font-size: 14px; color: #8e8e93; }
 </style>
@@ -24,38 +22,30 @@ body {
 <body>
 <div class="loading">
   <div class="emoji">🌆</div>
-  <p>ログイン中...</p>
+  <p id="status">ログイン中...</p>
 </div>
-
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js"></script>
-<script src="js/auth.js"></script>
 <script>
 (async () => {
   const params = new URLSearchParams(window.location.search);
   const code = params.get('code');
-  const state = params.get('state');
-
-  // Verify state
-  const savedState = sessionStorage.getItem('line_state');
-  if (state !== savedState) {
-    alert('認証エラー。もう一度やり直してください。');
+  if (!code) { window.location.href = '/'; return; }
+  try {
+    const res = await fetch('/api/line-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code,
+        redirect_uri: window.location.origin + '/callback.html'
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Auth failed');
+    localStorage.setItem('urban_os_user', JSON.stringify(data.user));
+    localStorage.setItem('urban_os_token', data.token);
     window.location.href = '/';
-    return;
-  }
-
-  if (code) {
-    try {
-      Auth.init();
-      await Auth.handleCallback(code);
-      window.location.href = '/';
-    } catch (e) {
-      console.error('Login error:', e);
-      alert('ログインに失敗しました。もう一度やり直してください。');
-      window.location.href = '/';
-    }
-  } else {
-    window.location.href = '/';
+  } catch (e) {
+    console.error('Login error:', e);
+    document.getElementById('status').textContent = 'エラー: ' + e.message;
   }
 })();
 </script>
