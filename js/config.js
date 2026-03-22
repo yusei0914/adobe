@@ -12,7 +12,7 @@ const CONFIG = {
   LINE_REDIRECT_URI: 'https://adobe-rho-three.vercel.app/callback.html'
 
   // App
-  APP_NAME: '都市OS',
+  APP_NAME: 'asobi',
   DEFAULT_DURATION: 90, // minutes
   DEFAULT_MAX_PEOPLE: 8,
 
