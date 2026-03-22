@@ -78,6 +78,41 @@ const API = {
     return plan;
   },
 
+  // 予定を更新
+  async updatePlan(planId, { title, description, location_name, starts_at, duration_minutes, max_people, visibility, note, tags }) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return null;
+
+    const { data: plan, error } = await this.db
+      .from('plans')
+      .update({
+        title,
+        description,
+        location_name,
+        starts_at,
+        duration_minutes,
+        max_people,
+        visibility,
+        note,
+      })
+      .eq('id', planId)
+      .eq('creator_id', userId)
+      .select()
+      .single();
+
+    if (error) { console.error('updatePlan error:', error); return null; }
+
+    // Replace tags
+    await this.db.from('plan_tags').delete().eq('plan_id', planId);
+    if (tags && tags.length > 0) {
+      await this.db.from('plan_tags').insert(
+        tags.map(tag => ({ plan_id: planId, tag }))
+      );
+    }
+
+    return plan;
+  },
+
   // ===== Participations =====
 
   async join(planId) {

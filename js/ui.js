@@ -143,7 +143,9 @@ const UI = {
     document.getElementById('detail-vibe-text').textContent = '';
 
     // Actions
+    const isCreator = plan.creator_id === Auth.currentUser?.id;
     document.getElementById('detail-actions').innerHTML = `
+      ${isCreator ? `<button class="btn-large btn-secondary" onclick="App.openEdit('${plan.id}')" style="margin-bottom:8px;">編集する</button>` : ''}
       <button class="btn-large btn-danger" onclick="App.cancelJoin('${plan.id}')">やっぱやめる</button>
       <p style="text-align:center;font-size:11px;color:#aeaeb2;margin-top:6px;">開始1時間前までキャンセルOK</p>
     `;

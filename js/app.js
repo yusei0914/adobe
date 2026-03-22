@@ -5,6 +5,7 @@
 const App = {
   plans: [],
   currentPlan: null,
+  editingPlanId: null,
 
   async init() {
     // Init Supabase
@@ -156,9 +157,46 @@ const App = {
     UI.showScreen('detail-screen');
   },
 
+  openEdit(planId) {
+    const plan = this.plans.find(p => p.id === planId);
+    if (!plan) return;
+
+    this.editingPlanId = planId;
+
+    // Pre-fill form with existing plan data
+    document.getElementById('post-title-input').value = plan.title || '';
+    document.getElementById('post-desc-input').value = plan.description || '';
+    document.getElementById('post-location').value = plan.location_name || '';
+
+    const dtInput = document.getElementById('post-datetime');
+    if (dtInput && plan.starts_at) {
+      dtInput.value = new Date(plan.starts_at).toISOString().slice(0, 16);
+    }
+
+    const maxPeopleSelect = document.getElementById('post-max-people');
+    if (maxPeopleSelect && plan.max_people) {
+      maxPeopleSelect.value = plan.max_people;
+    }
+
+    const visibilitySelect = document.getElementById('post-visibility');
+    if (visibilitySelect && plan.visibility) {
+      visibilitySelect.value = plan.visibility;
+    }
+
+    // Pre-select tags
+    document.querySelectorAll('.tag-selectable').forEach(t => {
+      t.classList.toggle('selected', (plan.tags || []).includes(t.dataset.tag));
+    });
+
+    document.getElementById('btn-post-submit').textContent = '更新する';
+    UI.showModal('modal-post');
+  },
+
   // ===== Post =====
 
   openPostModal() {
+    this.editingPlanId = null;
+
     // Set default datetime to 2 hours from now
     const defaultTime = new Date();
     defaultTime.setHours(defaultTime.getHours() + 2);
@@ -173,6 +211,7 @@ const App = {
     document.getElementById('post-desc-input').value = '';
     document.getElementById('post-location').value = '';
     document.querySelectorAll('.tag-selectable').forEach(t => t.classList.remove('selected'));
+    document.getElementById('btn-post-submit').textContent = '誘う';
 
     UI.showModal('modal-post');
   },
@@ -200,22 +239,53 @@ const App = {
       return;
     }
 
-    const plan = await API.createPlan({
-      title,
-      description,
-      location_name,
-      starts_at: new Date(starts_at).toISOString(),
-      max_people,
-      visibility,
-      tags: selectedTags
-    });
+    if (this.editingPlanId) {
+      // Edit mode
+      const plan = await API.updatePlan(this.editingPlanId, {
+        title,
+        description,
+        location_name,
+        starts_at: new Date(starts_at).toISOString(),
+        max_people,
+        visibility,
+        tags: selectedTags
+      });
 
-    if (plan) {
-      UI.hideModal('modal-post');
-      UI.showToast('投稿した！友達に通知が届くよ');
-      await this.refreshPlans();
+      if (plan) {
+        UI.hideModal('modal-post');
+        UI.showToast('予定を更新したよ！');
+        this.editingPlanId = null;
+        await this.refreshPlans();
+        // Re-render detail if open
+        if (this.currentPlan?.id === plan.id) {
+          const updated = this.plans.find(p => p.id === plan.id);
+          if (updated) {
+            this.currentPlan = updated;
+            UI.renderDetail(updated);
+          }
+        }
+      } else {
+        UI.showToast('エラーが発生しました');
+      }
     } else {
-      UI.showToast('エラーが発生しました');
+      // Create mode
+      const plan = await API.createPlan({
+        title,
+        description,
+        location_name,
+        starts_at: new Date(starts_at).toISOString(),
+        max_people,
+        visibility,
+        tags: selectedTags
+      });
+
+      if (plan) {
+        UI.hideModal('modal-post');
+        UI.showToast('投稿した！友達に通知が届くよ');
+        await this.refreshPlans();
+      } else {
+        UI.showToast('エラーが発生しました');
+      }
     }
   }
 };
