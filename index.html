@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#f2f2f7">
 <link rel="manifest" href="manifest.json">
 <title>asobi</title>
-<link rel="stylesheet" href="css/app.css?v=3">
+<link rel="stylesheet" href="css/app.css?v=4">
 </head>
 <body>
 <div id="app" class="phone">
@@ -112,6 +112,16 @@
       <p id="detail-vibe-text" style="font-size:12px;color:#8e8e93;"></p>
     </div>
 
+    <!-- Teams card (shown only when team_mode) -->
+    <div class="card" id="detail-teams-card" style="display:none;">
+      <div class="card-header">
+        <span class="card-title">🏆 チーム</span>
+        <span class="card-badge badge-purple" id="detail-teams-badge"></span>
+      </div>
+      <div id="detail-teams-list"></div>
+      <div id="detail-teams-actions" style="margin-top:12px;"></div>
+    </div>
+
     <div id="detail-actions"></div>
   </div>
 
@@ -184,7 +194,44 @@
           <span class="tag-selectable" data-tag="静かめ">静かめ</span>
         </div>
       </div>
+      <div class="post-option">
+        <span class="icon">🏆</span>
+        <div style="flex:1;">
+          <div class="text">チーム参加</div>
+          <div style="display:flex;align-items:center;gap:12px;margin-top:6px;">
+            <label class="toggle-switch">
+              <input type="checkbox" id="post-team-mode" onchange="App.toggleTeamMode(this.checked)">
+              <span class="toggle-track"><span class="toggle-thumb"></span></span>
+            </label>
+            <span id="team-size-wrap" style="display:none;align-items:center;gap:6px;font-size:13px;color:#636366;">
+              1チーム
+              <select id="post-team-size" class="post-option-input" style="width:56px;display:inline;">
+                <option value="2">2人</option>
+                <option value="3" selected>3人</option>
+                <option value="4">4人</option>
+                <option value="5">5人</option>
+              </select>
+            </span>
+          </div>
+        </div>
+      </div>
       <button class="btn-large btn-join" id="btn-post-submit">誘う</button>
+    </div>
+  </div>
+
+  <!-- Team Create Modal -->
+  <div class="modal-overlay" id="modal-team-create">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:40px;margin-bottom:8px;">🏆</div>
+        <div style="font-size:18px;font-weight:800;">チームを作る</div>
+        <div style="font-size:13px;color:#8e8e93;margin-top:4px;">チーム名を入力してください</div>
+      </div>
+      <input type="text" id="team-name-input" placeholder="例: 赤チーム、Aチーム" maxlength="20"
+        style="width:100%;padding:12px 16px;border-radius:12px;border:none;background:#f2f2f7;font-size:16px;font-family:inherit;outline:none;margin-bottom:16px;">
+      <button class="btn-large btn-join" onclick="App.submitTeamCreate()">作成する</button>
+      <button class="btn-large btn-cancel" style="margin-top:8px;" onclick="UI.hideModal('modal-team-create')">キャンセル</button>
     </div>
   </div>
 
@@ -211,11 +258,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js?v=3"></script>
-<script src="js/auth.js?v=3"></script>
-<script src="js/api.js?v=3"></script>
-<script src="js/ui.js?v=3"></script>
-<script src="js/app.js?v=3"></script>
+<script src="js/config.js?v=4"></script>
+<script src="js/auth.js?v=4"></script>
+<script src="js/api.js?v=4"></script>
+<script src="js/ui.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');

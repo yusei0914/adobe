@@ -42,7 +42,7 @@ const API = {
   },
 
   // 予定を作成
-  async createPlan({ title, description, location_name, location_detail, starts_at, duration_minutes, max_people, visibility, note, tags }) {
+  async createPlan({ title, description, location_name, location_detail, starts_at, duration_minutes, max_people, visibility, note, tags, team_mode, team_size }) {
     const userId = Auth.currentUser?.id;
     if (!userId) return null;
 
@@ -59,6 +59,8 @@ const API = {
         max_people: max_people || CONFIG.DEFAULT_MAX_PEOPLE,
         visibility: visibility || 'friends_of_friends',
         note,
+        team_mode: team_mode || false,
+        team_size: team_size || 3,
       })
       .select()
       .single();
@@ -79,7 +81,7 @@ const API = {
   },
 
   // 予定を更新
-  async updatePlan(planId, { title, description, location_name, starts_at, duration_minutes, max_people, visibility, note, tags }) {
+  async updatePlan(planId, { title, description, location_name, starts_at, duration_minutes, max_people, visibility, note, tags, team_mode, team_size }) {
     const userId = Auth.currentUser?.id;
     if (!userId) return null;
 
@@ -94,6 +96,8 @@ const API = {
         max_people,
         visibility,
         note,
+        team_mode: team_mode !== undefined ? team_mode : undefined,
+        team_size: team_size !== undefined ? team_size : undefined,
       })
       .eq('id', planId)
       .eq('creator_id', userId)
@@ -184,6 +188,66 @@ const API = {
     return (data || [])
       .map(p => p.plans)
       .filter(p => p && p.creator_id !== userId);
+  },
+
+  // ===== Teams =====
+
+  // プランのチーム一覧（メンバー込み）を取得
+  async getTeams(planId) {
+    const { data, error } = await this.db
+      .from('teams')
+      .select('*, team_members(user_id, joined_at, users(id, display_name))')
+      .eq('plan_id', planId)
+      .order('created_at', { ascending: true });
+
+    if (error) { console.error('getTeams error:', error); return []; }
+    return data || [];
+  },
+
+  // チームを作成（作成者は自動参加）
+  async createTeam(planId, name, maxMembers) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return null;
+
+    const { data: team, error } = await this.db
+      .from('teams')
+      .insert({ plan_id: planId, name, max_members: maxMembers, created_by: userId })
+      .select()
+      .single();
+
+    if (error) { console.error('createTeam error:', error); return null; }
+
+    await this.joinTeam(team.id);
+    return team;
+  },
+
+  // チームに参加
+  async joinTeam(teamId) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return null;
+
+    const { data, error } = await this.db
+      .from('team_members')
+      .upsert({ team_id: teamId, user_id: userId }, { onConflict: 'team_id,user_id' })
+      .select()
+      .single();
+
+    if (error) { console.error('joinTeam error:', error); return null; }
+    return data;
+  },
+
+  // チームから抜ける
+  async leaveTeam(teamId) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return;
+
+    const { error } = await this.db
+      .from('team_members')
+      .delete()
+      .eq('team_id', teamId)
+      .eq('user_id', userId);
+
+    if (error) console.error('leaveTeam error:', error);
   },
 
   // ===== Participations =====

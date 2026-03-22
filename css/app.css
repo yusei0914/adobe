@@ -520,3 +520,64 @@ select.post-option-input {
 .profile-plan-row:last-child { border-bottom: none; }
 .profile-plan-title { font-size: 14px; font-weight: 600; }
 .profile-plan-meta { font-size: 12px; color: #8e8e93; margin-top: 2px; }
+
+/* ====== TEAM MODE ====== */
+
+/* Toggle switch */
+.toggle-switch { position: relative; display: inline-block; width: 44px; height: 26px; flex-shrink: 0; }
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+.toggle-track {
+  position: absolute; inset: 0;
+  background: #e0e0e0;
+  border-radius: 13px;
+  transition: background 0.2s;
+  cursor: pointer;
+}
+.toggle-switch input:checked + .toggle-track { background: #007aff; }
+.toggle-thumb {
+  position: absolute;
+  width: 20px; height: 20px;
+  background: white;
+  border-radius: 50%;
+  top: 3px; left: 3px;
+  transition: transform 0.2s;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+}
+.toggle-switch input:checked + .toggle-track .toggle-thumb { transform: translateX(18px); }
+
+/* Team rows */
+.team-row {
+  padding: 12px 0;
+  border-bottom: 0.5px solid #f2f2f7;
+}
+.team-row:last-child { border-bottom: none; }
+.team-row-mine { background: #f0f7ff; border-radius: 10px; padding: 10px 12px; margin: 0 -4px; }
+.team-row-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.team-name { font-size: 14px; font-weight: 700; }
+.team-count { font-size: 12px; color: #8e8e93; }
+.team-row-bottom { display: flex; align-items: center; gap: 8px; }
+.team-slot-empty {
+  background: #e0e0e0;
+  border: 2px dashed #bdbdbd;
+}
+.team-status-mine {
+  font-size: 12px;
+  font-weight: 600;
+  color: #007aff;
+  background: #e3f2fd;
+  padding: 4px 10px;
+  border-radius: 20px;
+}
+.team-status-full {
+  font-size: 12px;
+  font-weight: 600;
+  color: #2e7d32;
+  background: #e8f5e9;
+  padding: 4px 10px;
+  border-radius: 20px;
+}

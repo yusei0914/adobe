@@ -142,6 +142,10 @@ const UI = {
       .map(t => `<span class="card-badge badge-green">${t}</span>`).join('');
     document.getElementById('detail-vibe-text').textContent = '';
 
+    // Teams card visibility
+    const teamsCard = document.getElementById('detail-teams-card');
+    if (teamsCard) teamsCard.style.display = plan.team_mode ? 'block' : 'none';
+
     // Actions
     const isCreator = plan.creator_id === Auth.currentUser?.id;
     document.getElementById('detail-actions').innerHTML = `
@@ -192,6 +196,77 @@ const UI = {
         <button class="btn-large btn-join" onclick="UI.hideModal('modal-confirm'); App.refreshPlans();">OK</button>
       </div>
     `;
+  },
+
+  // ===== Render Teams =====
+  renderTeams(plan, teams) {
+    const userId = Auth.currentUser?.id;
+    const list = document.getElementById('detail-teams-list');
+    const actions = document.getElementById('detail-teams-actions');
+    const badge = document.getElementById('detail-teams-badge');
+    if (!list || !actions) return;
+
+    // Is the current user already in a team for this plan?
+    const myTeam = teams.find(t =>
+      (t.team_members || []).some(m => m.user_id === userId)
+    );
+
+    badge.textContent = `${teams.length}チーム`;
+
+    list.innerHTML = teams.map(team => {
+      const members = team.team_members || [];
+      const isFull = members.length >= team.max_members;
+      const isMyTeam = myTeam?.id === team.id;
+
+      const avatars = members.map(m => {
+        const name = m.users?.display_name || '?';
+        const color = getAvatarColor(m.user_id);
+        return `<div class="mini-avatar" style="background:${color};">${getInitial(name)}</div>`;
+      }).join('');
+
+      const emptySlots = team.max_members - members.length;
+      const emptyAvatars = Array(emptySlots).fill(
+        `<div class="mini-avatar team-slot-empty"></div>`
+      ).join('');
+
+      let actionBtn = '';
+      if (isMyTeam) {
+        actionBtn = `<span class="team-status-mine">あなたのチーム</span>`;
+      } else if (isFull) {
+        actionBtn = `<span class="team-status-full">確定 ✓</span>`;
+      } else if (!myTeam) {
+        actionBtn = `<button class="btn btn-primary" style="padding:6px 14px;font-size:13px;" onclick="App.doJoinTeam('${team.id}','${plan.id}')">入る</button>`;
+      }
+
+      return `
+        <div class="team-row${isMyTeam ? ' team-row-mine' : ''}">
+          <div class="team-row-top">
+            <div class="team-name">${team.name}</div>
+            <div class="team-count">${members.length}/${team.max_members}人${isFull ? ' ✓' : ''}</div>
+          </div>
+          <div class="team-row-bottom">
+            <div class="plan-friends-avatars">${avatars}${emptyAvatars}</div>
+            <div style="flex:1;"></div>
+            ${actionBtn}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    if (teams.length === 0) {
+      list.innerHTML = '<p style="font-size:13px;color:#8e8e93;padding:8px 0;">まだチームがないよ。最初に作ろう！</p>';
+    }
+
+    // "チームを作る" button — show only if not in a team yet
+    if (!myTeam) {
+      actions.innerHTML = `
+        <button class="btn-large btn-secondary" onclick="App.openTeamCreate('${plan.id}')">🏆 チームを作る</button>
+      `;
+    } else {
+      actions.innerHTML = `
+        <button class="btn btn-secondary" style="font-size:13px;padding:8px 16px;" onclick="App.leaveTeam('${myTeam.id}','${plan.id}')">チームを抜ける</button>
+      `;
+    }
   },
 
   // ===== Render Profile =====

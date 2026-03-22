@@ -148,13 +148,19 @@ const App = {
     await this.refreshPlans();
   },
 
-  openDetail(planId) {
+  async openDetail(planId) {
     const plan = this.plans.find(p => p.id === planId);
     if (!plan) return;
 
     this.currentPlan = plan;
     UI.renderDetail(plan);
     UI.showScreen('detail-screen');
+
+    // Load teams if team mode
+    if (plan.team_mode) {
+      const teams = await API.getTeams(planId);
+      UI.renderTeams(plan, teams);
+    }
   },
 
   async deletePlan(planId) {
@@ -170,6 +176,57 @@ const App = {
     } else {
       UI.showToast('エラーが発生しました');
     }
+  },
+
+  // ===== Teams =====
+
+  openTeamCreate(planId) {
+    this._teamCreatePlanId = planId;
+    document.getElementById('team-name-input').value = '';
+    UI.showModal('modal-team-create');
+  },
+
+  async submitTeamCreate() {
+    const name = document.getElementById('team-name-input').value.trim();
+    if (!name) { UI.showToast('チーム名を入れて！'); return; }
+
+    const plan = this.currentPlan;
+    if (!plan) return;
+
+    const team = await API.createTeam(plan.id, name, plan.team_size || 3);
+    if (team) {
+      UI.hideModal('modal-team-create');
+      UI.showToast(`「${name}」チームを作ったよ！`);
+      // Also ensure user is going
+      await API.join(plan.id);
+      const teams = await API.getTeams(plan.id);
+      UI.renderTeams(plan, teams);
+    } else {
+      UI.showToast('エラーが発生しました');
+    }
+  },
+
+  async doJoinTeam(teamId, planId) {
+    await API.joinTeam(teamId);
+    // Also ensure user is going
+    await API.join(planId);
+    UI.showToast('チームに参加したよ！');
+    const plan = this.currentPlan;
+    const teams = await API.getTeams(planId);
+    UI.renderTeams(plan, teams);
+  },
+
+  async leaveTeam(teamId, planId) {
+    await API.leaveTeam(teamId);
+    UI.showToast('チームを抜けたよ');
+    const plan = this.currentPlan;
+    const teams = await API.getTeams(planId);
+    UI.renderTeams(plan, teams);
+  },
+
+  toggleTeamMode(enabled) {
+    const wrap = document.getElementById('team-size-wrap');
+    if (wrap) wrap.style.display = enabled ? 'inline-flex' : 'none';
   },
 
   shareInvite() {
@@ -223,6 +280,12 @@ const App = {
       t.classList.toggle('selected', (plan.tags || []).includes(t.dataset.tag));
     });
 
+    // Team mode
+    const teamModeChk = document.getElementById('post-team-mode');
+    if (teamModeChk) { teamModeChk.checked = !!plan.team_mode; this.toggleTeamMode(!!plan.team_mode); }
+    const teamSizeSelect = document.getElementById('post-team-size');
+    if (teamSizeSelect) teamSizeSelect.value = String(plan.team_size || 3);
+
     document.getElementById('btn-post-submit').textContent = '更新する';
     UI.showModal('modal-post');
   },
@@ -247,6 +310,10 @@ const App = {
     document.getElementById('post-location').value = '';
     document.querySelectorAll('.tag-selectable').forEach(t => t.classList.remove('selected'));
     document.getElementById('btn-post-submit').textContent = '誘う';
+    const teamModeChk = document.getElementById('post-team-mode');
+    if (teamModeChk) { teamModeChk.checked = false; this.toggleTeamMode(false); }
+    const teamSizeSelect = document.getElementById('post-team-size');
+    if (teamSizeSelect) teamSizeSelect.value = '3';
 
     UI.showModal('modal-post');
   },
@@ -269,6 +336,9 @@ const App = {
       selectedTags.push(t.dataset.tag);
     });
 
+    const team_mode = document.getElementById('post-team-mode')?.checked || false;
+    const team_size = parseInt(document.getElementById('post-team-size')?.value || '3');
+
     if (!starts_at) {
       UI.showToast('日時を入れて！');
       return;
@@ -283,7 +353,9 @@ const App = {
         starts_at: new Date(starts_at).toISOString(),
         max_people,
         visibility,
-        tags: selectedTags
+        tags: selectedTags,
+        team_mode,
+        team_size,
       });
 
       if (plan) {
@@ -311,7 +383,9 @@ const App = {
         starts_at: new Date(starts_at).toISOString(),
         max_people,
         visibility,
-        tags: selectedTags
+        tags: selectedTags,
+        team_mode,
+        team_size,
       });
 
       if (plan) {
