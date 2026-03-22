@@ -1,5 +1,5 @@
 // ========================================
-// 都市OS - Authentication (LINE Login)
+// asobi - Authentication (LINE Login)
 // ========================================
 
 const Auth = {

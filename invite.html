@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>友達追加 - asobi</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans', sans-serif;
+  background: #f2f2f7;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  color: #1c1c1e;
+  padding: 24px;
+}
+.container { text-align: center; width: 100%; max-width: 360px; }
+.icon { font-size: 64px; margin-bottom: 16px; }
+h1 { font-size: 22px; font-weight: 800; margin-bottom: 8px; }
+p { font-size: 14px; color: #8e8e93; margin-bottom: 28px; line-height: 1.7; }
+.btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  border-radius: 12px;
+  border: none;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: none;
+  text-align: center;
+  margin-bottom: 10px;
+  transition: all 0.15s;
+}
+.btn:active { transform: scale(0.97); }
+.btn-line { background: #06c755; color: white; }
+.btn-home { background: #f2f2f7; color: #007aff; }
+.spinner {
+  width: 32px; height: 32px;
+  border: 3px solid #e0e0e0;
+  border-top-color: #007aff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  margin: 0 auto 16px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="container">
+  <div id="icon" class="icon">🤝</div>
+  <h1 id="title">友達追加</h1>
+  <p id="desc"><span class="spinner"></span></p>
+  <div id="actions"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="js/config.js?v=3"></script>
+<script>
+function loginWithLINE() {
+  const state = Math.random().toString(36).substring(7);
+  sessionStorage.setItem('line_state', state);
+  const redirectUri = CONFIG.LINE_REDIRECT_URI || window.location.origin + '/callback.html';
+  const p = new URLSearchParams({
+    response_type: 'code',
+    client_id: CONFIG.LINE_CHANNEL_ID,
+    redirect_uri: redirectUri,
+    state,
+    scope: 'profile openid',
+  });
+  window.location.href = `https://access.line.me/oauth2/v2.1/authorize?${p}`;
+}
+
+(async () => {
+  const params = new URLSearchParams(window.location.search);
+  const friendId = params.get('uid');
+
+  if (!friendId) {
+    document.getElementById('icon').textContent = '❓';
+    document.getElementById('title').textContent = 'リンクが無効です';
+    document.getElementById('desc').textContent = '有効な招待リンクではありません。';
+    document.getElementById('actions').innerHTML = `<a href="/" class="btn btn-home">ホームへ</a>`;
+    return;
+  }
+
+  const stored = localStorage.getItem('urban_os_user');
+  const token = localStorage.getItem('urban_os_token');
+
+  if (!stored || !token) {
+    // Not logged in — save pending friend uid and redirect to LINE login
+    localStorage.setItem('pending_friend_uid', friendId);
+    document.getElementById('icon').textContent = '💬';
+    document.getElementById('title').textContent = 'LINEでログインしよう';
+    document.getElementById('desc').textContent = 'ログインすると自動で友達になれます。';
+    document.getElementById('actions').innerHTML = `
+      <button class="btn btn-line" onclick="loginWithLINE()">💬 LINEでログイン</button>
+      <a href="/" class="btn btn-home">キャンセル</a>
+    `;
+    return;
+  }
+
+  const me = JSON.parse(stored);
+
+  if (me.id === friendId) {
+    document.getElementById('icon').textContent = '😅';
+    document.getElementById('title').textContent = '自分のリンクです';
+    document.getElementById('desc').textContent = '友達に送って、asobiで繋がろう！';
+    document.getElementById('actions').innerHTML = `<a href="/" class="btn btn-home">ホームへ</a>`;
+    return;
+  }
+
+  // Add friend via Supabase
+  const db = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+  const { data: friendUser } = await db
+    .from('users')
+    .select('display_name')
+    .eq('id', friendId)
+    .maybeSingle();
+
+  const [a, b] = [me.id, friendId].sort();
+  const { error } = await db
+    .from('friendships')
+    .upsert({ user_a: a, user_b: b }, { onConflict: 'user_a,user_b' });
+
+  if (error) {
+    document.getElementById('icon').textContent = '❌';
+    document.getElementById('title').textContent = 'エラーが発生しました';
+    document.getElementById('desc').textContent = 'もう一度試してください。';
+    document.getElementById('actions').innerHTML = `<a href="/" class="btn btn-home">ホームへ</a>`;
+    return;
+  }
+
+  const friendName = friendUser?.display_name || '友達';
+  document.getElementById('icon').textContent = '🎉';
+  document.getElementById('title').textContent = `${friendName} と友達になった！`;
+  document.getElementById('desc').textContent = `${friendName} の予定がホームに表示されるようになります。`;
+  document.getElementById('actions').innerHTML = `<a href="/" class="btn btn-home">asobiを開く</a>`;
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,5 @@
 // ========================================
-// 都市OS - UI Components
+// asobi - UI Components
 // ========================================
 
 const UI = {
@@ -145,9 +145,14 @@ const UI = {
     // Actions
     const isCreator = plan.creator_id === Auth.currentUser?.id;
     document.getElementById('detail-actions').innerHTML = `
-      ${isCreator ? `<button class="btn-large btn-secondary" onclick="App.openEdit('${plan.id}')" style="margin-bottom:8px;">編集する</button>` : ''}
-      <button class="btn-large btn-danger" onclick="App.cancelJoin('${plan.id}')">やっぱやめる</button>
-      <p style="text-align:center;font-size:11px;color:#aeaeb2;margin-top:6px;">開始1時間前までキャンセルOK</p>
+      ${isCreator ? `
+        <button class="btn-large btn-secondary" onclick="App.openEdit('${plan.id}')" style="margin-bottom:8px;">編集する</button>
+        <button class="btn-large btn-danger" onclick="App.deletePlan('${plan.id}')" style="margin-bottom:8px;">削除する</button>
+      ` : `
+        <button class="btn-large btn-danger" onclick="App.cancelJoin('${plan.id}')">やっぱやめる</button>
+        <p style="text-align:center;font-size:11px;color:#aeaeb2;margin-top:6px;">開始1時間前までキャンセルOK</p>
+      `}
+      <button class="btn-large btn-secondary" onclick="App.shareInvite()" style="margin-top:8px;">友達を招待</button>
     `;
   },
 
@@ -185,6 +190,55 @@ const UI = {
           <p>時間になったら場所への行き方が届く。<br>持ち物も前日にリマインドするよ。</p>
         </div>
         <button class="btn-large btn-join" onclick="UI.hideModal('modal-confirm'); App.refreshPlans();">OK</button>
+      </div>
+    `;
+  },
+
+  // ===== Render Profile =====
+  renderProfile(user, myPlans, myParticipations) {
+    const el = document.getElementById('profile-content');
+    if (!el) return;
+
+    const initial = getInitial(user.display_name);
+    const color = getAvatarColor(user.id);
+
+    const planRow = (plan, isCreator) => {
+      const date = new Date(plan.starts_at);
+      const dateStr = `${date.getMonth() + 1}月${date.getDate()}日 ${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+      const badge = isCreator
+        ? `<span class="card-badge badge-blue">主催</span>`
+        : `<span class="card-badge badge-green">参加</span>`;
+      return `
+        <div class="profile-plan-row">
+          <div style="flex:1;">
+            <div class="profile-plan-title">${plan.title}</div>
+            <div class="profile-plan-meta">${dateStr}${plan.location_name ? ' · ' + plan.location_name : ''}</div>
+          </div>
+          ${badge}
+        </div>
+      `;
+    };
+
+    const allPlans = [
+      ...myPlans.map(p => ({ ...p, _isCreator: true })),
+      ...myParticipations.map(p => ({ ...p, _isCreator: false })),
+    ].sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at));
+
+    el.innerHTML = `
+      <div class="profile-hero">
+        <div class="profile-avatar" style="background:${color};">${initial}</div>
+        <div class="profile-name">${user.display_name}</div>
+        <div class="profile-sub">💬 LINE でログイン中</div>
+        <button class="btn btn-secondary" style="margin-top:14px;padding:10px 24px;width:auto;" onclick="App.shareInvite()">友達を招待</button>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">あなたの予定</span>
+          <span class="card-badge badge-blue">${allPlans.length}件</span>
+        </div>
+        ${allPlans.length > 0
+          ? allPlans.map(p => planRow(p, p._isCreator)).join('')
+          : '<p style="font-size:13px;color:#8e8e93;text-align:center;padding:16px 0;">まだ予定がないよ</p>'}
       </div>
     `;
   },

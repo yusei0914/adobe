@@ -42,7 +42,13 @@ body {
     if (!res.ok) throw new Error(data.error || 'Auth failed');
     localStorage.setItem('urban_os_user', JSON.stringify(data.user));
     localStorage.setItem('urban_os_token', data.token);
-    window.location.href = '/';
+    const pendingFriend = localStorage.getItem('pending_friend_uid');
+    if (pendingFriend) {
+      localStorage.removeItem('pending_friend_uid');
+      window.location.href = '/invite.html?uid=' + pendingFriend;
+    } else {
+      window.location.href = '/';
+    }
   } catch (e) {
     console.error('Login error:', e);
     document.getElementById('status').textContent = 'エラー: ' + e.message;

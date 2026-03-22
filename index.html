@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#f2f2f7">
 <link rel="manifest" href="manifest.json">
 <title>asobi</title>
-<link rel="stylesheet" href="css/app.css?v=2">
+<link rel="stylesheet" href="css/app.css?v=3">
 </head>
 <body>
 <div id="app" class="phone">
@@ -37,8 +37,13 @@
   <!-- Home -->
   <div id="home-screen" class="screen">
     <div class="screen-header">
-      <h1>今日やれること</h1>
-      <div class="sub" id="home-subtitle">友達やコミュニティの予定</div>
+      <div style="display:flex;align-items:center;justify-content:space-between;">
+        <div>
+          <h1>今日やれること</h1>
+          <div class="sub" id="home-subtitle">友達やコミュニティの予定</div>
+        </div>
+        <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;white-space:nowrap;" onclick="App.shareInvite()">友達を招待</button>
+      </div>
     </div>
 
     <!-- Post input -->
@@ -108,6 +113,13 @@
     </div>
 
     <div id="detail-actions"></div>
+  </div>
+
+  <!-- Profile -->
+  <div id="profile-screen" class="screen">
+    <div id="profile-content">
+      <!-- Populated by JS -->
+    </div>
   </div>
 
   <!-- Toast -->
@@ -199,11 +211,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js?v=2"></script>
-<script src="js/auth.js?v=2"></script>
-<script src="js/api.js?v=2"></script>
-<script src="js/ui.js?v=2"></script>
-<script src="js/app.js?v=2"></script>
+<script src="js/config.js?v=3"></script>
+<script src="js/auth.js?v=3"></script>
+<script src="js/api.js?v=3"></script>
+<script src="js/ui.js?v=3"></script>
+<script src="js/app.js?v=3"></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');

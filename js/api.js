@@ -1,5 +1,5 @@
 // ========================================
-// 都市OS - API (Supabase queries)
+// asobi - API (Supabase queries)
 // ========================================
 
 const API = {
@@ -111,6 +111,79 @@ const API = {
     }
 
     return plan;
+  },
+
+  // 予定を削除
+  async deletePlan(planId) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return false;
+
+    const { error } = await this.db
+      .from('plans')
+      .delete()
+      .eq('id', planId)
+      .eq('creator_id', userId);
+
+    if (error) { console.error('deletePlan error:', error); return false; }
+    return true;
+  },
+
+  // 友達にLINE通知を送る
+  async notifyFriends(plan) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return;
+
+    const { data: friends } = await this.db
+      .from('user_friends')
+      .select('users!user_friends_friend_id_fkey(line_user_id)')
+      .eq('user_id', userId);
+
+    const lineUserIds = (friends || [])
+      .map(f => f.users?.line_user_id)
+      .filter(Boolean);
+
+    if (lineUserIds.length === 0) return;
+
+    await fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        plan: { ...plan, creator_name: Auth.currentUser?.display_name },
+        lineUserIds,
+      }),
+    });
+  },
+
+  // 自分が作った予定
+  async getMyPlans() {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return [];
+
+    const { data, error } = await this.db
+      .from('plans')
+      .select('*, plan_tags(tag)')
+      .eq('creator_id', userId)
+      .order('starts_at', { ascending: false });
+
+    if (error) return [];
+    return (data || []).map(p => ({ ...p, tags: (p.plan_tags || []).map(t => t.tag) }));
+  },
+
+  // 自分が参加している予定（作成者以外）
+  async getMyParticipations() {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return [];
+
+    const { data, error } = await this.db
+      .from('participations')
+      .select('plan_id, status, plans(id, title, starts_at, location_name, creator_id)')
+      .eq('user_id', userId)
+      .eq('status', 'going');
+
+    if (error) return [];
+    return (data || [])
+      .map(p => p.plans)
+      .filter(p => p && p.creator_id !== userId);
   },
 
   // ===== Participations =====

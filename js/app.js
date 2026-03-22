@@ -1,5 +1,5 @@
 // ========================================
-// 都市OS - Main App Controller
+// asobi - Main App Controller
 // ========================================
 
 const App = {
@@ -37,7 +37,7 @@ const App = {
         tab.classList.add('active');
         const target = tab.dataset.tab;
         if (target === 'home') UI.showScreen('home-screen');
-        if (target === 'profile') UI.showScreen('profile-screen');
+        if (target === 'profile') { UI.showScreen('profile-screen'); this.loadProfile(); }
       });
     });
 
@@ -155,6 +155,41 @@ const App = {
     this.currentPlan = plan;
     UI.renderDetail(plan);
     UI.showScreen('detail-screen');
+  },
+
+  async deletePlan(planId) {
+    if (!window.confirm('この予定を削除しますか？\n参加者全員の予定からも消えます。')) return;
+
+    const ok = await API.deletePlan(planId);
+    if (ok) {
+      UI.showToast('予定を削除したよ');
+      UI.showScreen('home-screen');
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelector('[data-tab="home"]')?.classList.add('active');
+      await this.refreshPlans();
+    } else {
+      UI.showToast('エラーが発生しました');
+    }
+  },
+
+  shareInvite() {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return;
+    const inviteUrl = `${window.location.origin}/invite.html?uid=${userId}`;
+    const text = encodeURIComponent(`asobiで一緒に遊ぼう！\n友達追加はこちら👇\n${inviteUrl}`);
+    window.open(`https://line.me/R/msg/text/?${text}`, '_blank');
+  },
+
+  async loadProfile() {
+    const user = Auth.currentUser;
+    if (!user) return;
+
+    const [myPlans, myParticipations] = await Promise.all([
+      API.getMyPlans(),
+      API.getMyParticipations(),
+    ]);
+
+    UI.renderProfile(user, myPlans, myParticipations);
   },
 
   openEdit(planId) {
@@ -282,6 +317,7 @@ const App = {
       if (plan) {
         UI.hideModal('modal-post');
         UI.showToast('投稿した！友達に通知が届くよ');
+        API.notifyFriends(plan); // fire-and-forget
         await this.refreshPlans();
       } else {
         UI.showToast('エラーが発生しました');
