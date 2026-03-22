@@ -9,7 +9,7 @@ const CONFIG = {
 
   // LINE Login
   LINE_CHANNEL_ID: '2009558215',
-  LINE_REDIRECT_URI: 'https://adobe-rho-three.vercel.app/callback.html'
+  LINE_REDIRECT_URI: 'https://adobe-rho-three.vercel.app/callback.html',
 
   // App
   APP_NAME: 'asobi',
