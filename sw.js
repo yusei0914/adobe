@@ -1,5 +1,5 @@
 // Service Worker for PWA
-const CACHE_NAME = 'asobi-v1';
+const CACHE_NAME = 'asobi-v2';
 const ASSETS = [
   '/',
   '/index.html',
