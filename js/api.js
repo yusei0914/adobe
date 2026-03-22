@@ -132,30 +132,58 @@ const API = {
     return true;
   },
 
-  // 友達にLINE通知を送る
+  // 友達にアプリ内通知を送る（notificationsテーブルに直接挿入）
   async notifyFriends(plan) {
     const userId = Auth.currentUser?.id;
     if (!userId) return;
 
     const { data: friends } = await this.db
       .from('user_friends')
-      .select('users!user_friends_friend_id_fkey(line_user_id)')
+      .select('friend_id')
       .eq('user_id', userId);
 
-    const lineUserIds = (friends || [])
-      .map(f => f.users?.line_user_id)
-      .filter(Boolean);
+    const friendIds = (friends || []).map(f => f.friend_id);
+    if (friendIds.length === 0) return;
 
-    if (lineUserIds.length === 0) return;
+    await this.db.from('notifications').insert(
+      friendIds.map(friendId => ({ user_id: friendId, plan_id: plan.id }))
+    );
+  },
 
-    await fetch('/api/notify', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        plan: { ...plan, creator_name: Auth.currentUser?.display_name },
-        lineUserIds,
-      }),
-    });
+  // ===== Notifications =====
+
+  // 自分への通知一覧（最新20件、プラン情報付き）
+  async getNotifications() {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return [];
+
+    const { data, error } = await this.db
+      .from('notifications')
+      .select(`
+        id, read, created_at,
+        plans(id, title, starts_at, location_name, creator_id,
+          users!plans_creator_id_fkey(display_name)
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+
+    if (error) { console.error('getNotifications error:', error); return []; }
+    return (data || []).filter(n => n.plans); // 削除済みプランは除外
+  },
+
+  async markNotificationRead(notifId) {
+    await this.db.from('notifications').update({ read: true }).eq('id', notifId);
+  },
+
+  async markAllNotificationsRead() {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return;
+    await this.db.from('notifications')
+      .update({ read: true })
+      .eq('user_id', userId)
+      .eq('read', false);
   },
 
   // 自分が作った予定

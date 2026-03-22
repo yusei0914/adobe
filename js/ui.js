@@ -34,6 +34,52 @@ const UI = {
     document.getElementById(id).classList.remove('show');
   },
 
+  // ===== Render Notifications =====
+  renderNotifications(notifications) {
+    const section = document.getElementById('notifications-section');
+    if (!section) return;
+
+    const unread = notifications.filter(n => !n.read);
+
+    if (notifications.length === 0) {
+      section.innerHTML = '';
+      return;
+    }
+
+    const items = notifications.slice(0, 6).map(n => {
+      const plan = n.plans;
+      if (!plan) return '';
+      const creator = plan.users?.display_name || '友達';
+      const timeLabel = this.formatTimeLabel(plan.starts_at);
+      return `
+        <div class="notif-item${n.read ? ' notif-read' : ''}" onclick="App.openNotification('${n.id}','${plan.id}')">
+          <span class="notif-dot${n.read ? ' notif-dot-read' : ''}"></span>
+          <div class="notif-body">
+            <div class="notif-text"><strong>${creator}</strong> が「${plan.title}」を投稿</div>
+            <div class="notif-meta">${timeLabel}${plan.location_name ? ' · ' + plan.location_name : ''}</div>
+          </div>
+          <span class="notif-arrow">›</span>
+        </div>
+      `;
+    }).join('');
+
+    section.innerHTML = `
+      <div class="notif-card${unread.length > 0 ? ' notif-card-active' : ''}">
+        <div class="notif-header">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <span>🔔</span>
+            <span class="notif-title">友達の新着予定</span>
+            ${unread.length > 0 ? `<span class="notif-badge">${unread.length}</span>` : ''}
+          </div>
+          ${unread.length > 0
+            ? `<button class="notif-all-read" onclick="App.markAllNotificationsRead()">すべて既読</button>`
+            : `<span style="font-size:11px;color:#aeaeb2;">既読済み</span>`}
+        </div>
+        ${items}
+      </div>
+    `;
+  },
+
   // ===== Render Plan Card =====
   renderPlanCard(plan) {
     const creator = plan.creator_name || '誰か';

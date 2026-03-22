@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#f2f2f7">
 <link rel="manifest" href="manifest.json">
 <title>asobi</title>
-<link rel="stylesheet" href="css/app.css?v=4">
+<link rel="stylesheet" href="css/app.css?v=5">
 </head>
 <body>
 <div id="app" class="phone">
@@ -45,6 +45,9 @@
         <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;white-space:nowrap;" onclick="App.shareInvite()">友達を招待</button>
       </div>
     </div>
+
+    <!-- Notifications -->
+    <div id="notifications-section"></div>
 
     <!-- Post input -->
     <div class="post-card" id="btn-open-post">
@@ -258,11 +261,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js?v=4"></script>
-<script src="js/auth.js?v=4"></script>
-<script src="js/api.js?v=4"></script>
-<script src="js/ui.js?v=4"></script>
-<script src="js/app.js?v=4"></script>
+<script src="js/config.js?v=5"></script>
+<script src="js/auth.js?v=5"></script>
+<script src="js/api.js?v=5"></script>
+<script src="js/ui.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');

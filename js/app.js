@@ -84,8 +84,8 @@ const App = {
     // Show tab bar
     document.getElementById('tab-bar').style.display = 'flex';
 
-    // Load plans
-    await this.refreshPlans();
+    // Load plans + notifications in parallel
+    await Promise.all([this.refreshPlans(), this.loadNotifications()]);
 
     // Show home
     UI.showScreen('home-screen');
@@ -94,6 +94,32 @@ const App = {
   async refreshPlans() {
     this.plans = await API.getPlans();
     this.renderPlans();
+  },
+
+  // ===== Notifications =====
+
+  async loadNotifications() {
+    const notifications = await API.getNotifications();
+    UI.renderNotifications(notifications);
+  },
+
+  async openNotification(notifId, planId) {
+    API.markNotificationRead(notifId); // fire-and-forget
+    // Refresh notifications display
+    this.loadNotifications();
+    // Open plan detail — refresh if not in current list
+    const plan = this.plans.find(p => p.id === planId);
+    if (plan) {
+      this.openDetail(planId);
+    } else {
+      await this.refreshPlans();
+      if (this.plans.find(p => p.id === planId)) this.openDetail(planId);
+    }
+  },
+
+  async markAllNotificationsRead() {
+    await API.markAllNotificationsRead();
+    await this.loadNotifications();
   },
 
   renderPlans() {
