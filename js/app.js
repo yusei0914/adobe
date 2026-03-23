@@ -84,8 +84,8 @@ const App = {
     // Show tab bar
     document.getElementById('tab-bar').style.display = 'flex';
 
-    // Load plans + notifications in parallel
-    await Promise.all([this.refreshPlans(), this.loadNotifications()]);
+    // Load plans + notifications + free_today in parallel
+    await Promise.all([this.refreshPlans(), this.loadNotifications(), this.loadFreeToday()]);
 
     // Show home
     UI.showScreen('home-screen');
@@ -159,6 +159,7 @@ const App = {
     await API.join(planId);
     UI.renderSuccessModal(plan);
     UI.showToast('カレンダーに追加した');
+    API.notifyParticipants(plan); // fire-and-forget
   },
 
   async interested(planId) {
@@ -267,15 +268,16 @@ const App = {
     const user = Auth.currentUser;
     if (!user) return;
 
-    const [fullUser, myPlans, myParticipations] = await Promise.all([
+    const [fullUser, myPlans, myParticipations, friends, closeFriendIds] = await Promise.all([
       API.getCurrentUserFull(),
       API.getMyPlans(),
       API.getMyParticipations(),
+      API.getFriends(),
+      API.getCloseFriends(),
     ]);
 
-    // Merge friend_code into user object
     const userWithCode = fullUser ? { ...user, ...fullUser } : user;
-    UI.renderProfile(userWithCode, myPlans, myParticipations);
+    UI.renderProfile(userWithCode, myPlans, myParticipations, friends, closeFriendIds);
   },
 
   copyFriendCode() {
@@ -393,6 +395,74 @@ const App = {
         }
       </div>
     `;
+  },
+
+  // ===== Free Today =====
+
+  async loadFreeToday() {
+    const posts = await API.getFreeToday();
+    UI.renderFreeToday(posts);
+  },
+
+  showFreeTodayModal() {
+    document.getElementById('free-today-comment-input').value = '';
+    document.getElementById('free-today-visibility').value = 'all_friends';
+    UI.showModal('modal-free-today');
+  },
+
+  async submitFreeToday() {
+    const comment = document.getElementById('free-today-comment-input').value.trim();
+    const visibility = document.getElementById('free-today-visibility').value;
+
+    const post = await API.postFreeToday(comment, visibility);
+    if (post) {
+      UI.hideModal('modal-free-today');
+      UI.showToast('「暇！」を投稿したよ');
+      API.notifyFriendsOfFreeToday(post.id, visibility); // fire-and-forget
+      await this.loadFreeToday();
+    } else {
+      UI.showToast('エラーが発生しました');
+    }
+  },
+
+  async joinFreeToday(freeTodayId) {
+    await API.joinFreeToday(freeTodayId);
+    await this.loadFreeToday();
+  },
+
+  async leaveFreeToday(freeTodayId) {
+    await API.leaveFreeToday(freeTodayId);
+    await this.loadFreeToday();
+  },
+
+  async deleteFreeToday(id) {
+    await API.deleteFreeToday(id);
+    UI.showToast('取り消したよ');
+    await this.loadFreeToday();
+  },
+
+  openFreeTodayNotification(notifId) {
+    API.markNotificationRead(notifId);
+    this.loadNotifications();
+    // Scroll to free today section on home
+    UI.showScreen('home-screen');
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelector('[data-tab="home"]')?.classList.add('active');
+    setTimeout(() => {
+      document.getElementById('free-today-section')?.scrollIntoView({ behavior: 'smooth' });
+    }, 200);
+  },
+
+  // ===== Close Friends =====
+
+  async toggleCloseFriend(friendId, isCurrentlyClose) {
+    if (isCurrentlyClose) {
+      await API.removeCloseFriend(friendId);
+    } else {
+      await API.addCloseFriend(friendId);
+    }
+    // Re-render profile
+    await this.loadProfile();
   },
 
   async addFriendBySearch(friendId, friendName) {

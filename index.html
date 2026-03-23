@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#f2f2f7">
 <link rel="manifest" href="manifest.json">
 <title>asobi</title>
-<link rel="stylesheet" href="css/app.css?v=6">
+<link rel="stylesheet" href="css/app.css?v=7">
 </head>
 <body>
 <div id="app" class="phone">
@@ -49,12 +49,20 @@
     <!-- Notifications -->
     <div id="notifications-section"></div>
 
+    <!-- Free Today section -->
+    <div id="free-today-section"></div>
+
     <!-- Post input -->
     <div class="post-card" id="btn-open-post">
       <div class="post-input">
         <div class="avatar-sm" id="home-avatar">Y</div>
         <div class="placeholder">誰か一緒にやらない？</div>
       </div>
+    </div>
+
+    <!-- Plans section heading -->
+    <div class="section-header-row" style="padding:0 4px 4px;">
+      <h2 class="section-title">🗓 イベント</h2>
     </div>
 
     <!-- Plans list -->
@@ -182,6 +190,7 @@
               <option value="friends">友達のみ</option>
               <option value="friends_of_friends" selected>友達の友達まで</option>
               <option value="anyone">誰でも</option>
+              <option value="close_friends">親しい友達のみ</option>
             </select>
           </div>
         </div>
@@ -246,6 +255,33 @@
     </div>
   </div>
 
+  <!-- Free Today Modal -->
+  <div class="modal-overlay" id="modal-free-today">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:40px;margin-bottom:8px;">☀️</div>
+        <div style="font-size:18px;font-weight:800;">今日暇！</div>
+        <div style="font-size:13px;color:#8e8e93;margin-top:4px;">友達に知らせよう</div>
+      </div>
+      <input type="text" id="free-today-comment-input" maxlength="40"
+        placeholder="一言コメント（任意）例: フットサルしたい"
+        style="width:100%;padding:12px 16px;border-radius:12px;border:none;background:#f2f2f7;font-size:15px;font-family:inherit;outline:none;margin-bottom:12px;">
+      <div class="post-option" style="margin-bottom:16px;">
+        <span class="icon">👋</span>
+        <div style="flex:1;">
+          <div class="text">誰に見せる？</div>
+          <select id="free-today-visibility" class="post-option-input">
+            <option value="all_friends">全友達</option>
+            <option value="close_friends">親しい友達のみ</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn-large btn-join" onclick="App.submitFreeToday()">暇！を投稿</button>
+      <button class="btn-large btn-cancel" style="margin-top:8px;" onclick="UI.hideModal('modal-free-today')">キャンセル</button>
+    </div>
+  </div>
+
   <!-- QR Code Modal -->
   <div class="modal-qr-overlay" id="modal-qr" onclick="App.closeQRModal()">
     <div class="modal-qr-box" onclick="event.stopPropagation()">
@@ -292,11 +328,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-<script src="js/config.js?v=6"></script>
-<script src="js/auth.js?v=6"></script>
-<script src="js/api.js?v=6"></script>
-<script src="js/ui.js?v=6"></script>
-<script src="js/app.js?v=6"></script>
+<script src="js/config.js?v=7"></script>
+<script src="js/auth.js?v=7"></script>
+<script src="js/api.js?v=7"></script>
+<script src="js/ui.js?v=7"></script>
+<script src="js/app.js?v=7"></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');

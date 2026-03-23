@@ -132,7 +132,7 @@ const API = {
     return true;
   },
 
-  // 友達にアプリ内通知を送る（notificationsテーブルに直接挿入）
+  // 友達にアプリ内通知を送る（新規プラン投稿時）
   async notifyFriends(plan) {
     const userId = Auth.currentUser?.id;
     if (!userId) return;
@@ -146,7 +146,33 @@ const API = {
     if (friendIds.length === 0) return;
 
     await this.db.from('notifications').insert(
-      friendIds.map(friendId => ({ user_id: friendId, plan_id: plan.id }))
+      friendIds.map(friendId => ({ user_id: friendId, plan_id: plan.id, type: 'new_plan', actor_id: userId }))
+    );
+  },
+
+  // 参加者更新通知（誰かが参加した時、主催者＋既存参加者へ通知）
+  async notifyParticipants(plan) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return;
+
+    const { data: participants } = await this.db
+      .from('participations')
+      .select('user_id')
+      .eq('plan_id', plan.id)
+      .eq('status', 'going');
+
+    const toNotify = new Set([plan.creator_id, ...(participants || []).map(p => p.user_id)]);
+    toNotify.delete(userId); // 自分には通知しない
+
+    if (toNotify.size === 0) return;
+
+    await this.db.from('notifications').insert(
+      [...toNotify].map(notifyUserId => ({
+        user_id: notifyUserId,
+        plan_id: plan.id,
+        type: 'new_participant',
+        actor_id: userId,
+      }))
     );
   },
 
@@ -160,17 +186,19 @@ const API = {
     const { data, error } = await this.db
       .from('notifications')
       .select(`
-        id, read, created_at,
+        id, read, created_at, type, actor_id,
         plans(id, title, starts_at, location_name, creator_id,
           users!plans_creator_id_fkey(display_name)
-        )
+        ),
+        actor:users!notifications_actor_id_fkey(display_name),
+        free_today(id, comment, user_id, users!free_today_user_id_fkey(display_name))
       `)
       .eq('user_id', userId)
       .order('created_at', { ascending: false })
       .limit(20);
 
     if (error) { console.error('getNotifications error:', error); return []; }
-    return (data || []).filter(n => n.plans); // 削除済みプランは除外
+    return (data || []).filter(n => n.plans || n.free_today);
   },
 
   async markNotificationRead(notifId) {
@@ -403,6 +431,132 @@ const API = {
       .eq('id', userId)
       .single();
     return data;
+  },
+
+  // ===== Free Today =====
+
+  async getFreeToday() {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return [];
+
+    const { data: friends } = await this.db.from('user_friends').select('friend_id').eq('user_id', userId);
+    const friendIds = (friends || []).map(f => f.friend_id);
+    const allIds = [...friendIds, userId];
+
+    const now = new Date().toISOString();
+
+    const [{ data: posts, error }, { data: closeFriendOf }] = await Promise.all([
+      this.db.from('free_today')
+        .select('*, users(id, display_name), free_today_joins(user_id, joined_at)')
+        .in('user_id', allIds)
+        .gt('expires_at', now)
+        .order('created_at', { ascending: false }),
+      this.db.from('close_friends').select('user_id').eq('friend_id', userId)
+    ]);
+
+    if (error) { console.error('getFreeToday error:', error); return []; }
+
+    const closeFriendOfIds = new Set((closeFriendOf || []).map(r => r.user_id));
+
+    return (posts || []).filter(post => {
+      if (post.user_id === userId) return true;
+      if (post.visibility === 'close_friends') return closeFriendOfIds.has(post.user_id);
+      return true;
+    });
+  },
+
+  async postFreeToday(comment, visibility) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return null;
+
+    // 既存の自分の投稿を削除（1日1投稿）
+    await this.db.from('free_today').delete().eq('user_id', userId);
+
+    const expires_at = new Date();
+    expires_at.setHours(23, 59, 59, 999);
+
+    const { data, error } = await this.db.from('free_today').insert({
+      user_id: userId,
+      comment: comment || null,
+      visibility: visibility || 'all_friends',
+      expires_at: expires_at.toISOString(),
+    }).select().single();
+
+    if (error) { console.error('postFreeToday error:', error); return null; }
+    return data;
+  },
+
+  async deleteFreeToday(id) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return;
+    await this.db.from('free_today').delete().eq('id', id).eq('user_id', userId);
+  },
+
+  async joinFreeToday(freeTodayId) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return null;
+    const { data, error } = await this.db.from('free_today_joins')
+      .upsert({ free_today_id: freeTodayId, user_id: userId }, { onConflict: 'free_today_id,user_id' })
+      .select().single();
+    if (error) { console.error('joinFreeToday error:', error); return null; }
+    return data;
+  },
+
+  async leaveFreeToday(freeTodayId) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return;
+    await this.db.from('free_today_joins').delete()
+      .eq('free_today_id', freeTodayId).eq('user_id', userId);
+  },
+
+  async notifyFriendsOfFreeToday(freeTodayId, visibility) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return;
+
+    let friendIds;
+    if (visibility === 'close_friends') {
+      const { data: cf } = await this.db.from('close_friends').select('friend_id').eq('user_id', userId);
+      friendIds = (cf || []).map(f => f.friend_id);
+    } else {
+      const { data: fr } = await this.db.from('user_friends').select('friend_id').eq('user_id', userId);
+      friendIds = (fr || []).map(f => f.friend_id);
+    }
+
+    if (!friendIds || friendIds.length === 0) return;
+
+    await this.db.from('notifications').insert(
+      friendIds.map(friendId => ({
+        user_id: friendId,
+        free_today_id: freeTodayId,
+        type: 'free_today',
+        actor_id: userId,
+      }))
+    );
+  },
+
+  // ===== Close Friends =====
+
+  async getCloseFriends() {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return [];
+    const { data, error } = await this.db.from('close_friends')
+      .select('friend_id').eq('user_id', userId);
+    if (error) { console.error('getCloseFriends error:', error); return []; }
+    return (data || []).map(r => r.friend_id);
+  },
+
+  async addCloseFriend(friendId) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return;
+    await this.db.from('close_friends')
+      .upsert({ user_id: userId, friend_id: friendId }, { onConflict: 'user_id,friend_id' });
+  },
+
+  async removeCloseFriend(friendId) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return;
+    await this.db.from('close_friends').delete()
+      .eq('user_id', userId).eq('friend_id', friendId);
   },
 
   // ===== Relations =====

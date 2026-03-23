@@ -46,21 +46,59 @@ const UI = {
       return;
     }
 
-    const items = notifications.slice(0, 6).map(n => {
-      const plan = n.plans;
-      if (!plan) return '';
-      const creator = plan.users?.display_name || '友達';
-      const timeLabel = this.formatTimeLabel(plan.starts_at);
-      return `
-        <div class="notif-item${n.read ? ' notif-read' : ''}" onclick="App.openNotification('${n.id}','${plan.id}')">
-          <span class="notif-dot${n.read ? ' notif-dot-read' : ''}"></span>
-          <div class="notif-body">
-            <div class="notif-text"><strong>${creator}</strong> が「${plan.title}」を投稿</div>
-            <div class="notif-meta">${timeLabel}${plan.location_name ? ' · ' + plan.location_name : ''}</div>
+    const items = notifications.slice(0, 8).map(n => {
+      const type = n.type || 'new_plan';
+
+      if (type === 'new_plan') {
+        const plan = n.plans;
+        if (!plan) return '';
+        const creator = plan.users?.display_name || '友達';
+        const timeLabel = this.formatTimeLabel(plan.starts_at);
+        return `
+          <div class="notif-item${n.read ? ' notif-read' : ''}" onclick="App.openNotification('${n.id}','${plan.id}')">
+            <span class="notif-dot${n.read ? ' notif-dot-read' : ''}"></span>
+            <div class="notif-body">
+              <div class="notif-text"><strong>${creator}</strong> が「${plan.title}」を投稿</div>
+              <div class="notif-meta">${timeLabel}${plan.location_name ? ' · ' + plan.location_name : ''}</div>
+            </div>
+            <span class="notif-arrow">›</span>
           </div>
-          <span class="notif-arrow">›</span>
-        </div>
-      `;
+        `;
+      }
+
+      if (type === 'new_participant') {
+        const plan = n.plans;
+        if (!plan) return '';
+        const actor = n.actor?.display_name || '誰か';
+        const timeLabel = this.formatTimeLabel(plan.starts_at);
+        return `
+          <div class="notif-item${n.read ? ' notif-read' : ''}" onclick="App.openNotification('${n.id}','${plan.id}')">
+            <span class="notif-dot${n.read ? ' notif-dot-read' : ''}"></span>
+            <div class="notif-body">
+              <div class="notif-text"><strong>${actor}</strong> が「${plan.title}」に参加しました</div>
+              <div class="notif-meta">${timeLabel}${plan.location_name ? ' · ' + plan.location_name : ''}</div>
+            </div>
+            <span class="notif-arrow">›</span>
+          </div>
+        `;
+      }
+
+      if (type === 'free_today') {
+        const actor = n.actor?.display_name || n.free_today?.users?.display_name || '友達';
+        const comment = n.free_today?.comment;
+        return `
+          <div class="notif-item${n.read ? ' notif-read' : ''}" onclick="App.openFreeTodayNotification('${n.id}')">
+            <span class="notif-dot${n.read ? ' notif-dot-read' : ''}"></span>
+            <div class="notif-body">
+              <div class="notif-text"><strong>${actor}</strong> が今日暇みたいだよ！${comment ? ` 「${comment}」` : ''}</div>
+              <div class="notif-meta">ホームで確認 ☀️</div>
+            </div>
+            <span class="notif-arrow">›</span>
+          </div>
+        `;
+      }
+
+      return '';
     }).join('');
 
     section.innerHTML = `
@@ -68,7 +106,7 @@ const UI = {
         <div class="notif-header">
           <div style="display:flex;align-items:center;gap:8px;">
             <span>🔔</span>
-            <span class="notif-title">友達の新着予定</span>
+            <span class="notif-title">お知らせ</span>
             ${unread.length > 0 ? `<span class="notif-badge">${unread.length}</span>` : ''}
           </div>
           ${unread.length > 0
@@ -76,6 +114,75 @@ const UI = {
             : `<span style="font-size:11px;color:#aeaeb2;">既読済み</span>`}
         </div>
         ${items}
+      </div>
+    `;
+  },
+
+  // ===== Render Free Today =====
+  renderFreeToday(posts) {
+    const section = document.getElementById('free-today-section');
+    if (!section) return;
+
+    const userId = Auth.currentUser?.id;
+    const myPost = posts.find(p => p.user_id === userId);
+
+    const headerRow = `
+      <div class="section-header-row">
+        <h2 class="section-title">☀️ 今暇な人</h2>
+        ${myPost
+          ? `<button class="free-today-cancel-btn" onclick="App.deleteFreeToday('${myPost.id}')">取り消す</button>`
+          : `<button class="btn btn-primary free-today-post-btn" onclick="App.showFreeTodayModal()">暇！</button>`}
+      </div>
+    `;
+
+    if (posts.length === 0) {
+      section.innerHTML = `
+        <div class="free-today-wrap">
+          ${headerRow}
+          <p class="free-today-empty">友達の「暇！」がここに表示されるよ</p>
+        </div>
+      `;
+      return;
+    }
+
+    const cards = posts.map(post => {
+      const name = post.users?.display_name || '？';
+      const initial = getInitial(name);
+      const color = getAvatarColor(post.user_id);
+      const joins = post.free_today_joins || [];
+      const isJoined = joins.some(j => j.user_id === userId);
+      const isOwn = post.user_id === userId;
+      const joinCount = joins.length;
+
+      const minutesAgo = Math.floor((Date.now() - new Date(post.created_at)) / 60000);
+      const timeAgo = minutesAgo < 1 ? 'たった今' : minutesAgo < 60 ? `${minutesAgo}分前` : `${Math.floor(minutesAgo / 60)}時間前`;
+
+      return `
+        <div class="free-today-card">
+          <div class="free-today-top">
+            <div class="mini-avatar" style="background:${color};width:36px;height:36px;flex-shrink:0;">${initial}</div>
+            <div class="free-today-info">
+              <div class="free-today-name">${name}</div>
+              <div class="free-today-time">${timeAgo}${post.visibility === 'close_friends' ? ' · 親しい友達' : ''}</div>
+            </div>
+            ${isOwn ? `<button class="free-today-delete-btn" onclick="App.deleteFreeToday('${post.id}')">×</button>` : ''}
+          </div>
+          ${post.comment ? `<div class="free-today-comment">「${post.comment}」</div>` : ''}
+          <div class="free-today-bottom">
+            <span class="free-today-join-count">${joinCount > 0 ? `${joinCount}人が「自分も！」` : ''}</span>
+            ${!isOwn ? (isJoined
+              ? `<button class="btn btn-success free-today-btn" onclick="App.leaveFreeToday('${post.id}')">参加中 ✓</button>`
+              : `<button class="btn btn-primary free-today-btn" onclick="App.joinFreeToday('${post.id}')">自分も！</button>`
+            ) : ''}
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    section.innerHTML = `
+      <div class="free-today-wrap">
+        ${headerRow}
+        ${cards}
       </div>
     `;
   },
@@ -316,7 +423,7 @@ const UI = {
   },
 
   // ===== Render Profile =====
-  renderProfile(user, myPlans, myParticipations) {
+  renderProfile(user, myPlans, myParticipations, friends = [], closeFriendIds = []) {
     const el = document.getElementById('profile-content');
     if (!el) return;
 
@@ -371,6 +478,55 @@ const UI = {
         ${allPlans.length > 0
           ? allPlans.map(p => planRow(p, p._isCreator)).join('')
           : '<p style="font-size:13px;color:#8e8e93;text-align:center;padding:16px 0;">まだ予定がないよ</p>'}
+      </div>
+      ${this.renderCloseFriendsCard(friends, closeFriendIds)}
+    `;
+  },
+
+  renderCloseFriendsCard(friends, closeFriendIds) {
+    const closeSet = new Set(closeFriendIds);
+
+    if (friends.length === 0) {
+      return `
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">⭐ 親しい友達</span>
+            <span class="card-badge badge-blue">0人</span>
+          </div>
+          <p style="font-size:13px;color:#8e8e93;text-align:center;padding:16px 0;">友達を追加するとここに表示されるよ</p>
+        </div>
+      `;
+    }
+
+    const rows = friends.map(f => {
+      const friend = f.users || {};
+      const friendId = f.friend_id || friend.id;
+      if (!friendId) return '';
+      const name = friend.display_name || '？';
+      const initial = getInitial(name);
+      const color = getAvatarColor(friendId);
+      const isClose = closeSet.has(friendId);
+
+      return `
+        <div class="close-friend-row">
+          <div class="mini-avatar" style="background:${color};width:36px;height:36px;flex-shrink:0;">${initial}</div>
+          <div class="close-friend-name">${name}</div>
+          <button class="close-friend-toggle${isClose ? ' active' : ''}"
+            onclick="App.toggleCloseFriend('${friendId}', ${isClose})">
+            ${isClose ? '⭐ 親しい' : '☆ 追加'}
+          </button>
+        </div>
+      `;
+    }).join('');
+
+    return `
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">⭐ 親しい友達</span>
+          <span class="card-badge badge-blue">${closeFriendIds.length}人</span>
+        </div>
+        <p style="font-size:12px;color:#8e8e93;margin-bottom:12px;">「親しい友達のみ」投稿はこのリストの人にだけ見えます</p>
+        ${rows}
       </div>
     `;
   },
