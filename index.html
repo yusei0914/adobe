@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#f2f2f7">
 <link rel="manifest" href="manifest.json">
 <title>asobi</title>
-<link rel="stylesheet" href="css/app.css?v=5">
+<link rel="stylesheet" href="css/app.css?v=6">
 </head>
 <body>
 <div id="app" class="phone">
@@ -246,6 +246,36 @@
     </div>
   </div>
 
+  <!-- QR Code Modal -->
+  <div class="modal-qr-overlay" id="modal-qr" onclick="App.closeQRModal()">
+    <div class="modal-qr-box" onclick="event.stopPropagation()">
+      <div class="modal-qr-title" id="qr-user-name"></div>
+      <div class="modal-qr-sub">このQRを読み取って友達追加</div>
+      <canvas id="qr-canvas" width="220" height="220"></canvas>
+      <button class="modal-qr-close" onclick="App.closeQRModal()">閉じる</button>
+    </div>
+  </div>
+
+  <!-- Search Friend Modal -->
+  <div class="modal-overlay" id="modal-search-friend">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:36px;margin-bottom:8px;">🔍</div>
+        <div style="font-size:18px;font-weight:800;">IDで友達を検索</div>
+        <div style="font-size:13px;color:#8e8e93;margin-top:4px;">相手の6桁のマイIDを入力</div>
+      </div>
+      <div class="search-friend-input-wrap">
+        <input type="text" id="search-friend-input" maxlength="6" placeholder="例: AB3K7Z"
+          oninput="this.value=this.value.toUpperCase()"
+          onkeydown="if(event.key==='Enter')App.searchFriendByCode()">
+        <button class="btn btn-secondary" style="padding:12px 16px;font-size:14px;font-weight:700;width:auto;" onclick="App.searchFriendByCode()">検索</button>
+      </div>
+      <div id="search-friend-result"></div>
+      <button class="btn-large btn-cancel" style="margin-top:16px;" onclick="UI.hideModal('modal-search-friend')">キャンセル</button>
+    </div>
+  </div>
+
   <!-- Tab Bar -->
   <div class="tabs" id="tab-bar" style="display:none;">
     <div class="tab active" data-tab="home">
@@ -261,11 +291,12 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js?v=5"></script>
-<script src="js/auth.js?v=5"></script>
-<script src="js/api.js?v=5"></script>
-<script src="js/ui.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/auth.js?v=6"></script>
+<script src="js/api.js?v=6"></script>
+<script src="js/ui.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');

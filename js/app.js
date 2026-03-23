@@ -267,12 +267,146 @@ const App = {
     const user = Auth.currentUser;
     if (!user) return;
 
-    const [myPlans, myParticipations] = await Promise.all([
+    const [fullUser, myPlans, myParticipations] = await Promise.all([
+      API.getCurrentUserFull(),
       API.getMyPlans(),
       API.getMyParticipations(),
     ]);
 
-    UI.renderProfile(user, myPlans, myParticipations);
+    // Merge friend_code into user object
+    const userWithCode = fullUser ? { ...user, ...fullUser } : user;
+    UI.renderProfile(userWithCode, myPlans, myParticipations);
+  },
+
+  copyFriendCode() {
+    const codeEl = document.getElementById('profile-friend-code-value');
+    if (!codeEl) return;
+    const code = codeEl.textContent;
+    navigator.clipboard.writeText(code).then(() => {
+      UI.showToast('マイIDをコピーしました');
+    }).catch(() => {
+      // Fallback for older browsers
+      const el = document.createElement('input');
+      el.value = code;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      UI.showToast('マイIDをコピーしました');
+    });
+  },
+
+  showQRModal() {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return;
+
+    const qrUrl = `${window.location.origin}/add-friend?id=${userId}`;
+    const modal = document.getElementById('modal-qr');
+    const canvas = document.getElementById('qr-canvas');
+    const nameEl = document.getElementById('qr-user-name');
+
+    if (nameEl) nameEl.textContent = Auth.currentUser?.display_name || '';
+
+    if (canvas && typeof QRCode !== 'undefined') {
+      QRCode.toCanvas(canvas, qrUrl, { width: 220, margin: 2, color: { dark: '#1c1c1e', light: '#ffffff' } }, (err) => {
+        if (err) console.error('QR error:', err);
+      });
+    }
+
+    if (modal) {
+      modal.style.display = 'flex';
+      requestAnimationFrame(() => modal.classList.add('active'));
+    }
+  },
+
+  closeQRModal() {
+    const modal = document.getElementById('modal-qr');
+    if (modal) {
+      modal.classList.remove('active');
+      setTimeout(() => { modal.style.display = 'none'; }, 200);
+    }
+  },
+
+  showSearchFriendModal() {
+    const modal = document.getElementById('modal-search-friend');
+    const input = document.getElementById('search-friend-input');
+    const result = document.getElementById('search-friend-result');
+    if (input) input.value = '';
+    if (result) result.innerHTML = '';
+    if (modal) {
+      modal.classList.add('show');
+      setTimeout(() => input?.focus(), 300);
+    }
+  },
+
+  async searchFriendByCode() {
+    const input = document.getElementById('search-friend-input');
+    const result = document.getElementById('search-friend-result');
+    const code = input?.value?.trim();
+
+    if (!code || code.length !== 6) {
+      if (result) result.innerHTML = `<div class="search-result-msg">6桁のIDを入力してください</div>`;
+      return;
+    }
+
+    if (result) result.innerHTML = `<div class="search-result-msg">検索中...</div>`;
+
+    const user = await API.getUserByFriendCode(code);
+
+    if (!user) {
+      result.innerHTML = `<div class="search-result-msg">ユーザーが見つかりませんでした</div>`;
+      return;
+    }
+
+    const me = Auth.currentUser;
+    if (user.id === me?.id) {
+      result.innerHTML = `<div class="search-result-msg">自分のIDです</div>`;
+      return;
+    }
+
+    // Check if already friends
+    const { data: existing } = await API.db
+      .from('user_friends')
+      .select('friend_id')
+      .eq('user_id', me.id)
+      .eq('friend_id', user.id)
+      .maybeSingle();
+
+    const isAlreadyFriend = !!existing;
+    const initial = (user.display_name || '?').charAt(0).toUpperCase();
+    const colors = ['#FF6B6B','#4ECDC4','#45B7D1','#96CEB4','#FFEAA7','#DDA0DD','#98D8C8'];
+    const color = colors[user.id.charCodeAt(0) % colors.length];
+
+    const nameText = document.createTextNode(user.display_name);
+    const tempDiv = document.createElement('div');
+    tempDiv.appendChild(nameText);
+    const safeName = tempDiv.innerHTML;
+
+    result.innerHTML = `
+      <div class="search-result-card">
+        <div class="search-result-avatar" style="background:${color};">${initial}</div>
+        <div class="search-result-name">${safeName}</div>
+        <div class="search-result-code">ID: ${user.friend_code}</div>
+        ${isAlreadyFriend
+          ? `<div class="search-result-msg" style="color:#34c759;margin-top:8px;">すでに友達です</div>`
+          : `<button class="btn-large btn-join" style="margin-top:12px;" data-friend-id="${user.id}" data-friend-name="${safeName}" onclick="App.addFriendBySearch(this.dataset.friendId, this.dataset.friendName)">友達追加</button>`
+        }
+      </div>
+    `;
+  },
+
+  async addFriendBySearch(friendId, friendName) {
+    const result = await API.addFriend(friendId);
+    if (result) {
+      const resultEl = document.getElementById('search-friend-result');
+      if (resultEl) {
+        const btn = resultEl.querySelector('.btn-large');
+        if (btn) btn.outerHTML = `<div class="search-result-msg" style="color:#34c759;margin-top:8px;">友達追加しました！</div>`;
+      }
+      UI.showToast(`${friendName} と友達になった！`);
+    } else {
+      UI.showToast('エラーが発生しました');
+    }
   },
 
   openEdit(planId) {

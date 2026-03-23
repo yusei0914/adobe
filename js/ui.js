@@ -345,12 +345,23 @@ const UI = {
       ...myParticipations.map(p => ({ ...p, _isCreator: false })),
     ].sort((a, b) => new Date(b.starts_at) - new Date(a.starts_at));
 
+    const friendCode = user.friend_code || '------';
+
     el.innerHTML = `
       <div class="profile-hero">
         <div class="profile-avatar" style="background:${color};">${initial}</div>
         <div class="profile-name">${user.display_name}</div>
         <div class="profile-sub">💬 LINE でログイン中</div>
-        <button class="btn btn-secondary" style="margin-top:14px;padding:10px 24px;width:auto;" onclick="App.shareInvite()">友達を招待</button>
+        <div class="profile-friend-code-wrap">
+          <span class="profile-friend-code-label">マイID</span>
+          <span class="profile-friend-code-value" id="profile-friend-code-value">${friendCode}</span>
+          <button class="profile-copy-btn" onclick="App.copyFriendCode()">コピー</button>
+        </div>
+        <div class="profile-action-row">
+          <button class="btn btn-secondary profile-action-btn" onclick="App.shareInvite()">友達を招待</button>
+          <button class="btn btn-secondary profile-action-btn" onclick="App.showQRModal()">QRコード</button>
+        </div>
+        <button class="btn btn-secondary" style="margin-top:8px;width:100%;max-width:280px;" onclick="App.showSearchFriendModal()">IDで検索</button>
       </div>
       <div class="card">
         <div class="card-header">

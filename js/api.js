@@ -376,11 +376,32 @@ const API = {
 
     const { data, error } = await this.db
       .from('friendships')
-      .insert({ user_a: a, user_b: b })
+      .upsert({ user_a: a, user_b: b }, { onConflict: 'user_a,user_b' })
       .select()
       .single();
 
     if (error) console.error('addFriend error:', error);
+    return data;
+  },
+
+  async getUserByFriendCode(code) {
+    const { data, error } = await this.db
+      .from('users')
+      .select('id, display_name, avatar_url, friend_code')
+      .eq('friend_code', code.toUpperCase().trim())
+      .maybeSingle();
+    if (error) { console.error('getUserByFriendCode error:', error); return null; }
+    return data;
+  },
+
+  async getCurrentUserFull() {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return null;
+    const { data } = await this.db
+      .from('users')
+      .select('id, display_name, avatar_url, friend_code')
+      .eq('id', userId)
+      .single();
     return data;
   },
 
