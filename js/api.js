@@ -437,13 +437,24 @@ const API = {
     const userId = Auth.currentUser?.id;
     if (!userId) return [];
 
-    const { data, error } = await this.db
-      .from('user_friends')
-      .select('friend_id, users!user_friends_friend_id_fkey(id, display_name, avatar_url)')
-      .eq('user_id', userId);
+    // friendshipsテーブルを直接クエリ（user_friendsビューはFK制約がなくjoinできないため）
+    const { data: friendships, error } = await this.db
+      .from('friendships')
+      .select('user_a, user_b')
+      .or(`user_a.eq.${userId},user_b.eq.${userId}`);
 
     if (error) { console.error('getFriends error:', error); return []; }
-    return data || [];
+    if (!friendships?.length) return [];
+
+    const friendIds = friendships.map(f => f.user_a === userId ? f.user_b : f.user_a);
+
+    const { data: users, error: usersError } = await this.db
+      .from('users')
+      .select('id, display_name, avatar_url')
+      .in('id', friendIds);
+
+    if (usersError) { console.error('getFriends users error:', usersError); return []; }
+    return (users || []).map(u => ({ friend_id: u.id, users: u }));
   },
 
   async addFriend(friendId) {
