@@ -132,9 +132,10 @@ const API = {
     return true;
   },
 
-  // 友達にアプリ内通知を送る（新規プラン投稿時）
+  // 友達にアプリ内通知 ＋ LINE push（新規プラン投稿時）
   async notifyFriends(plan) {
     const userId = Auth.currentUser?.id;
+    const userName = Auth.currentUser?.display_name || '友達';
     if (!userId) return;
 
     const { data: friends } = await this.db
@@ -145,14 +146,19 @@ const API = {
     const friendIds = (friends || []).map(f => f.friend_id);
     if (friendIds.length === 0) return;
 
+    // アプリ内通知
     await this.db.from('notifications').insert(
       friendIds.map(friendId => ({ user_id: friendId, plan_id: plan.id, type: 'new_plan', actor_id: userId }))
     );
+
+    // LINE push（fire-and-forget）
+    this.lineNotify(friendIds, `📅 ${userName} が「${plan.title}」を投稿したよ！\nasobiで確認してね`);
   },
 
   // 参加者更新通知（誰かが参加した時、主催者＋既存参加者へ通知）
   async notifyParticipants(plan) {
     const userId = Auth.currentUser?.id;
+    const userName = Auth.currentUser?.display_name || '誰か';
     if (!userId) return;
 
     const { data: participants } = await this.db
@@ -162,18 +168,38 @@ const API = {
       .eq('status', 'going');
 
     const toNotify = new Set([plan.creator_id, ...(participants || []).map(p => p.user_id)]);
-    toNotify.delete(userId); // 自分には通知しない
+    toNotify.delete(userId);
 
     if (toNotify.size === 0) return;
 
+    const notifyIds = [...toNotify];
+
+    // アプリ内通知
     await this.db.from('notifications').insert(
-      [...toNotify].map(notifyUserId => ({
+      notifyIds.map(notifyUserId => ({
         user_id: notifyUserId,
         plan_id: plan.id,
         type: 'new_participant',
         actor_id: userId,
       }))
     );
+
+    // LINE push（fire-and-forget）
+    this.lineNotify(notifyIds, `🙋 ${userName} が「${plan.title}」に参加しました！\nasobiで確認してね`);
+  },
+
+  // LINE push通知（内部UUID配列 → /api/line-notify）
+  async lineNotify(userIds, message) {
+    if (!userIds || userIds.length === 0) return;
+    try {
+      await fetch('/api/line-notify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userIds, message }),
+      });
+    } catch (e) {
+      console.error('lineNotify error:', e);
+    }
   },
 
   // ===== Notifications =====
@@ -304,6 +330,31 @@ const API = {
       .eq('user_id', userId);
 
     if (error) console.error('leaveTeam error:', error);
+  },
+
+  // 招待コードでチームに参加
+  async joinTeamByCode(code) {
+    const userId = Auth.currentUser?.id;
+    if (!userId) return { error: 'ログインが必要です' };
+
+    const { data: team, error } = await this.db
+      .from('teams')
+      .select('id, plan_id, name, max_members, team_members(user_id)')
+      .eq('invite_code', code.toUpperCase().trim())
+      .maybeSingle();
+
+    if (error || !team) return { error: 'チームが見つかりませんでした' };
+
+    const memberCount = (team.team_members || []).length;
+    if (memberCount >= team.max_members) return { error: 'チームが満員です' };
+
+    const alreadyIn = (team.team_members || []).some(m => m.user_id === userId);
+    if (alreadyIn) return { error: 'すでにこのチームに参加しています' };
+
+    await this.joinTeam(team.id);
+    await this.join(team.plan_id);
+
+    return { team };
   },
 
   // ===== Participations =====

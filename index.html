@@ -8,7 +8,7 @@
 <meta name="theme-color" content="#f2f2f7">
 <link rel="manifest" href="manifest.json">
 <title>asobi</title>
-<link rel="stylesheet" href="css/app.css?v=7">
+<link rel="stylesheet" href="css/app.css?v=8">
 </head>
 <body>
 <div id="app" class="phone">
@@ -42,7 +42,10 @@
           <h1>今日やれること</h1>
           <div class="sub" id="home-subtitle">友達やコミュニティの予定</div>
         </div>
-        <button class="btn btn-secondary" style="padding:8px 14px;font-size:13px;white-space:nowrap;" onclick="App.shareInvite()">友達を招待</button>
+        <div style="display:flex;gap:6px;">
+          <button class="btn btn-secondary" style="padding:8px 12px;font-size:12px;white-space:nowrap;" onclick="App.shareInvite()">友達を招待</button>
+          <button class="btn btn-secondary" style="padding:8px 12px;font-size:12px;white-space:nowrap;" onclick="App.showJoinByCode()">🏆 コードで参加</button>
+        </div>
       </div>
     </div>
 
@@ -191,6 +194,7 @@
               <option value="friends_of_friends" selected>友達の友達まで</option>
               <option value="anyone">誰でも</option>
               <option value="close_friends">親しい友達のみ</option>
+              <option value="team_limited">チームメンバー限定</option>
             </select>
           </div>
         </div>
@@ -252,6 +256,27 @@
     <div class="modal-sheet">
       <div class="modal-handle"></div>
       <div id="modal-confirm-content"></div>
+    </div>
+  </div>
+
+  <!-- Join Team by Code Modal -->
+  <div class="modal-overlay" id="modal-join-by-code">
+    <div class="modal-sheet">
+      <div class="modal-handle"></div>
+      <div style="text-align:center;margin-bottom:20px;">
+        <div style="font-size:36px;margin-bottom:8px;">🏆</div>
+        <div style="font-size:18px;font-weight:800;">招待コードで参加</div>
+        <div style="font-size:13px;color:#8e8e93;margin-top:4px;">チームの6桁コードを入力</div>
+      </div>
+      <div class="search-friend-input-wrap">
+        <input type="text" id="join-code-input" maxlength="6" placeholder="例: AB3K7Z"
+          oninput="this.value=this.value.toUpperCase()"
+          onkeydown="if(event.key==='Enter')App.submitJoinByCode()"
+          style="letter-spacing:4px;font-weight:800;font-size:20px;text-align:center;">
+        <button class="btn btn-secondary" style="padding:12px 16px;font-size:14px;font-weight:700;width:auto;" onclick="App.submitJoinByCode()">参加</button>
+      </div>
+      <div id="join-code-result"></div>
+      <button class="btn-large btn-cancel" style="margin-top:16px;" onclick="UI.hideModal('modal-join-by-code')">キャンセル</button>
     </div>
   </div>
 
@@ -328,11 +353,11 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
-<script src="js/config.js?v=7"></script>
-<script src="js/auth.js?v=7"></script>
-<script src="js/api.js?v=7"></script>
-<script src="js/ui.js?v=7"></script>
-<script src="js/app.js?v=7"></script>
+<script src="js/config.js?v=8"></script>
+<script src="js/auth.js?v=8"></script>
+<script src="js/api.js?v=8"></script>
+<script src="js/ui.js?v=8"></script>
+<script src="js/app.js?v=8"></script>
 <script>
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('/sw.js');

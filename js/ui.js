@@ -410,14 +410,24 @@ const UI = {
       list.innerHTML = '<p style="font-size:13px;color:#8e8e93;padding:8px 0;">まだチームがないよ。最初に作ろう！</p>';
     }
 
-    // "チームを作る" button — show only if not in a team yet
+    // アクションボタン
+    const isCreator = plan.creator_id === Auth.currentUser?.id;
     if (!myTeam) {
       actions.innerHTML = `
-        <button class="btn-large btn-secondary" onclick="App.openTeamCreate('${plan.id}')">🏆 チームを作る</button>
+        <button class="btn-large btn-secondary" onclick="App.openTeamCreate('${plan.id}')" style="margin-bottom:8px;">🏆 チームを作る</button>
+        <button class="btn-large btn-secondary" onclick="App.showJoinByCode()" style="font-size:14px;">招待コードで参加</button>
       `;
     } else {
+      const myCode = myTeam.invite_code || '';
       actions.innerHTML = `
-        <button class="btn btn-secondary" style="font-size:13px;padding:8px 16px;" onclick="App.leaveTeam('${myTeam.id}','${plan.id}')">チームを抜ける</button>
+        ${myCode ? `
+          <div class="invite-code-box">
+            <span class="invite-code-label">招待コード</span>
+            <span class="invite-code-value">${myCode}</span>
+            <button class="invite-code-copy" onclick="App.copyTeamCode('${myCode}')">コピー</button>
+          </div>
+        ` : ''}
+        <button class="btn btn-secondary" style="font-size:13px;padding:8px 16px;margin-top:8px;" onclick="App.leaveTeam('${myTeam.id}','${plan.id}')">チームを抜ける</button>
       `;
     }
   },
@@ -470,6 +480,7 @@ const UI = {
         </div>
         <button class="btn btn-secondary" style="margin-top:8px;width:100%;max-width:280px;" onclick="App.showSearchFriendModal()">IDで検索</button>
       </div>
+      ${this.renderFriendsListCard(friends, closeFriendIds)}
       <div class="card">
         <div class="card-header">
           <span class="card-title">あなたの予定</span>
@@ -479,21 +490,22 @@ const UI = {
           ? allPlans.map(p => planRow(p, p._isCreator)).join('')
           : '<p style="font-size:13px;color:#8e8e93;text-align:center;padding:16px 0;">まだ予定がないよ</p>'}
       </div>
-      ${this.renderCloseFriendsCard(friends, closeFriendIds)}
     `;
   },
 
-  renderCloseFriendsCard(friends, closeFriendIds) {
+  renderFriendsListCard(friends, closeFriendIds) {
     const closeSet = new Set(closeFriendIds);
 
     if (friends.length === 0) {
       return `
         <div class="card">
           <div class="card-header">
-            <span class="card-title">⭐ 親しい友達</span>
+            <span class="card-title">友達一覧</span>
             <span class="card-badge badge-blue">0人</span>
           </div>
-          <p style="font-size:13px;color:#8e8e93;text-align:center;padding:16px 0;">友達を追加するとここに表示されるよ</p>
+          <p style="font-size:13px;color:#8e8e93;text-align:center;padding:16px 0;">
+            「IDで検索」や「QRコード」で友達を追加しよう
+          </p>
         </div>
       `;
     }
@@ -508,12 +520,13 @@ const UI = {
       const isClose = closeSet.has(friendId);
 
       return `
-        <div class="close-friend-row">
-          <div class="mini-avatar" style="background:${color};width:36px;height:36px;flex-shrink:0;">${initial}</div>
-          <div class="close-friend-name">${name}</div>
-          <button class="close-friend-toggle${isClose ? ' active' : ''}"
-            onclick="App.toggleCloseFriend('${friendId}', ${isClose})">
-            ${isClose ? '⭐ 親しい' : '☆ 追加'}
+        <div class="friends-list-row">
+          <div class="mini-avatar" style="background:${color};width:40px;height:40px;font-size:16px;flex-shrink:0;">${initial}</div>
+          <div class="friends-list-name">${name}</div>
+          <button class="star-toggle${isClose ? ' star-on' : ''}"
+            onclick="App.toggleCloseFriend('${friendId}', ${isClose})"
+            title="${isClose ? '親しい友達から外す' : '親しい友達に追加'}">
+            ${isClose ? '★' : '☆'}
           </button>
         </div>
       `;
@@ -522,10 +535,12 @@ const UI = {
     return `
       <div class="card">
         <div class="card-header">
-          <span class="card-title">⭐ 親しい友達</span>
-          <span class="card-badge badge-blue">${closeFriendIds.length}人</span>
+          <span class="card-title">友達一覧</span>
+          <span class="card-badge badge-blue">${friends.length}人</span>
         </div>
-        <p style="font-size:12px;color:#8e8e93;margin-bottom:12px;">「親しい友達のみ」投稿はこのリストの人にだけ見えます</p>
+        <p style="font-size:11px;color:#8e8e93;margin-bottom:10px;">
+          ★ = 親しい友達（${closeFriendIds.length}人）／「親しい友達のみ」投稿に表示されます
+        </p>
         ${rows}
       </div>
     `;

@@ -453,6 +453,59 @@ const App = {
     }, 200);
   },
 
+  // ===== Team Invite Code =====
+
+  showJoinByCode() {
+    const input = document.getElementById('join-code-input');
+    const result = document.getElementById('join-code-result');
+    if (input) input.value = '';
+    if (result) result.innerHTML = '';
+    UI.showModal('modal-join-by-code');
+    setTimeout(() => input?.focus(), 300);
+  },
+
+  async submitJoinByCode() {
+    const input = document.getElementById('join-code-input');
+    const result = document.getElementById('join-code-result');
+    const code = input?.value?.trim();
+
+    if (!code || code.length !== 6) {
+      if (result) result.innerHTML = `<div class="search-result-msg">6桁のコードを入力してください</div>`;
+      return;
+    }
+
+    if (result) result.innerHTML = `<div class="search-result-msg">参加中...</div>`;
+
+    const res = await API.joinTeamByCode(code);
+
+    if (res.error) {
+      result.innerHTML = `<div class="search-result-msg" style="color:#ff3b30;">${res.error}</div>`;
+      return;
+    }
+
+    UI.hideModal('modal-join-by-code');
+    UI.showToast(`「${res.team.name}」チームに参加したよ！`);
+
+    // プラン一覧を更新してそのプランの詳細を開く
+    await this.refreshPlans();
+    const plan = this.plans.find(p => p.id === res.team.plan_id);
+    if (plan) this.openDetail(plan.id);
+  },
+
+  copyTeamCode(code) {
+    navigator.clipboard.writeText(code).then(() => {
+      UI.showToast('招待コードをコピーしました');
+    }).catch(() => {
+      const el = document.createElement('input');
+      el.value = code;
+      document.body.appendChild(el);
+      el.select();
+      document.execCommand('copy');
+      document.body.removeChild(el);
+      UI.showToast('招待コードをコピーしました');
+    });
+  },
+
   // ===== Close Friends =====
 
   async toggleCloseFriend(friendId, isCurrentlyClose) {
