@@ -239,15 +239,21 @@
   <div class="modal-overlay" id="modal-team-create">
     <div class="modal-sheet">
       <div class="modal-handle"></div>
-      <div style="text-align:center;margin-bottom:20px;">
-        <div style="font-size:40px;margin-bottom:8px;">🏆</div>
-        <div style="font-size:18px;font-weight:800;">チームを作る</div>
-        <div style="font-size:13px;color:#8e8e93;margin-top:4px;">チーム名を入力してください</div>
+      <!-- 作成フォーム -->
+      <div id="team-create-form">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:40px;margin-bottom:8px;">🏆</div>
+          <div style="font-size:18px;font-weight:800;">チームを作る</div>
+          <div style="font-size:13px;color:#8e8e93;margin-top:4px;" id="team-create-plan-name"></div>
+        </div>
+        <input type="text" id="team-name-input" placeholder="例: 赤チーム、Aチーム" maxlength="20"
+          style="width:100%;padding:12px 16px;border-radius:12px;border:none;background:#f2f2f7;font-size:16px;font-family:inherit;outline:none;margin-bottom:16px;"
+          onkeydown="if(event.key==='Enter')App.submitTeamCreate()">
+        <button class="btn-large btn-join" onclick="App.submitTeamCreate()">作成する</button>
+        <button class="btn-large btn-cancel" style="margin-top:8px;" onclick="UI.hideModal('modal-team-create')">キャンセル</button>
       </div>
-      <input type="text" id="team-name-input" placeholder="例: 赤チーム、Aチーム" maxlength="20"
-        style="width:100%;padding:12px 16px;border-radius:12px;border:none;background:#f2f2f7;font-size:16px;font-family:inherit;outline:none;margin-bottom:16px;">
-      <button class="btn-large btn-join" onclick="App.submitTeamCreate()">作成する</button>
-      <button class="btn-large btn-cancel" style="margin-top:8px;" onclick="UI.hideModal('modal-team-create')">キャンセル</button>
+      <!-- 作成後：招待コード表示 -->
+      <div id="team-create-result" style="display:none;"></div>
     </div>
   </div>
 

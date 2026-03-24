@@ -448,11 +448,12 @@ const UI = {
         : `<span class="card-badge badge-green">参加</span>`;
       return `
         <div class="profile-plan-row">
-          <div style="flex:1;">
+          <div style="flex:1;min-width:0;">
             <div class="profile-plan-title">${plan.title}</div>
             <div class="profile-plan-meta">${dateStr}${plan.location_name ? ' · ' + plan.location_name : ''}</div>
           </div>
           ${badge}
+          <button class="profile-team-btn" onclick="App.openTeamCreate('${plan.id}')" title="チームを作る">🏆＋</button>
         </div>
       `;
     };

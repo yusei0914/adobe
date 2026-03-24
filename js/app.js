@@ -209,25 +209,66 @@ const App = {
 
   openTeamCreate(planId) {
     this._teamCreatePlanId = planId;
+
+    // currentPlanがなければplans配列から探す（プロフィール画面から呼ばれる場合）
+    if (!this.currentPlan || this.currentPlan.id !== planId) {
+      const found = this.plans.find(p => p.id === planId);
+      if (found) this.currentPlan = found;
+    }
+
+    // モーダルをフォーム表示にリセット
     document.getElementById('team-name-input').value = '';
+    document.getElementById('team-create-form').style.display = '';
+    document.getElementById('team-create-result').style.display = 'none';
+    document.getElementById('team-create-result').innerHTML = '';
+
+    const planNameEl = document.getElementById('team-create-plan-name');
+    if (planNameEl) {
+      const plan = this.currentPlan;
+      planNameEl.textContent = plan ? `「${plan.title}」のチーム` : 'チーム名を入力してください';
+    }
+
     UI.showModal('modal-team-create');
+    setTimeout(() => document.getElementById('team-name-input')?.focus(), 300);
   },
 
   async submitTeamCreate() {
     const name = document.getElementById('team-name-input').value.trim();
     if (!name) { UI.showToast('チーム名を入れて！'); return; }
 
-    const plan = this.currentPlan;
-    if (!plan) return;
+    const planId = this._teamCreatePlanId;
+    const plan = this.currentPlan?.id === planId
+      ? this.currentPlan
+      : this.plans.find(p => p.id === planId);
+    if (!plan) { UI.showToast('プランが見つかりません'); return; }
 
     const team = await API.createTeam(plan.id, name, plan.team_size || 3);
     if (team) {
-      UI.hideModal('modal-team-create');
-      UI.showToast(`「${name}」チームを作ったよ！`);
-      // Also ensure user is going
+      // フォームを隠して招待コードを表示
+      document.getElementById('team-create-form').style.display = 'none';
+      const resultEl = document.getElementById('team-create-result');
+      resultEl.style.display = '';
+      resultEl.innerHTML = `
+        <div style="text-align:center;">
+          <div style="font-size:36px;margin-bottom:8px;">🎉</div>
+          <div style="font-size:17px;font-weight:800;margin-bottom:4px;">「${name}」を作ったよ！</div>
+          <div style="font-size:13px;color:#8e8e93;margin-bottom:20px;">「${plan.title}」のチーム</div>
+          <div class="invite-code-box" style="margin-bottom:12px;">
+            <span class="invite-code-label">招待コード</span>
+            <span class="invite-code-value">${team.invite_code || '------'}</span>
+            <button class="invite-code-copy" onclick="App.copyTeamCode('${team.invite_code || ''}')">コピー</button>
+          </div>
+          <p style="font-size:12px;color:#8e8e93;margin-bottom:20px;">このコードを友達に送ってチームに招待しよう</p>
+          <button class="btn-large btn-join" onclick="UI.hideModal('modal-team-create');App.loadProfile();">OK</button>
+        </div>
+      `;
+
+      // プラン参加＆詳細画面のチームも更新（詳細画面を開いている場合）
       await API.join(plan.id);
-      const teams = await API.getTeams(plan.id);
-      UI.renderTeams(plan, teams);
+      if (document.getElementById('detail-screen')?.classList.contains('active')) {
+        const teams = await API.getTeams(plan.id);
+        UI.renderTeams(plan, teams);
+      }
     } else {
       UI.showToast('エラーが発生しました');
     }
