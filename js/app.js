@@ -407,12 +407,13 @@ const App = {
       return;
     }
 
-    // Check if already friends
+    // Check if already friends（friendshipsはuser_a < user_bで格納）
+    const [fa, fb] = [me.id, user.id].sort();
     const { data: existing } = await API.db
-      .from('user_friends')
-      .select('friend_id')
-      .eq('user_id', me.id)
-      .eq('friend_id', user.id)
+      .from('friendships')
+      .select('user_a')
+      .eq('user_a', fa)
+      .eq('user_b', fb)
       .maybeSingle();
 
     const isAlreadyFriend = !!existing;

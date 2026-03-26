@@ -138,12 +138,12 @@ const API = {
     const userName = Auth.currentUser?.display_name || '友達';
     if (!userId) return;
 
-    const { data: friends } = await this.db
-      .from('user_friends')
-      .select('friend_id')
-      .eq('user_id', userId);
+    const { data: fships } = await this.db
+      .from('friendships')
+      .select('user_a, user_b')
+      .or(`user_a.eq.${userId},user_b.eq.${userId}`);
 
-    const friendIds = (friends || []).map(f => f.friend_id);
+    const friendIds = (fships || []).map(f => f.user_a === userId ? f.user_b : f.user_a);
     if (friendIds.length === 0) return;
 
     // アプリ内通知
@@ -501,8 +501,8 @@ const API = {
     const userId = Auth.currentUser?.id;
     if (!userId) return [];
 
-    const { data: friends } = await this.db.from('user_friends').select('friend_id').eq('user_id', userId);
-    const friendIds = (friends || []).map(f => f.friend_id);
+    const { data: fships } = await this.db.from('friendships').select('user_a, user_b').or(`user_a.eq.${userId},user_b.eq.${userId}`);
+    const friendIds = (fships || []).map(f => f.user_a === userId ? f.user_b : f.user_a);
     const allIds = [...friendIds, userId];
 
     const now = new Date().toISOString();
@@ -580,8 +580,8 @@ const API = {
       const { data: cf } = await this.db.from('close_friends').select('friend_id').eq('user_id', userId);
       friendIds = (cf || []).map(f => f.friend_id);
     } else {
-      const { data: fr } = await this.db.from('user_friends').select('friend_id').eq('user_id', userId);
-      friendIds = (fr || []).map(f => f.friend_id);
+      const { data: fr } = await this.db.from('friendships').select('user_a, user_b').or(`user_a.eq.${userId},user_b.eq.${userId}`);
+      friendIds = (fr || []).map(f => f.user_a === userId ? f.user_b : f.user_a);
     }
 
     if (!friendIds || friendIds.length === 0) return;
@@ -626,42 +626,42 @@ const API = {
   async getRelation(userId, otherUserId) {
     if (userId === otherUserId) return 'self';
 
-    // Check direct friendship
+    // Check direct friendship (friendshipsはuser_a < user_bで格納)
+    const [a, b] = [userId, otherUserId].sort();
     const { data: direct } = await this.db
-      .from('user_friends')
-      .select('friend_id')
-      .eq('user_id', userId)
-      .eq('friend_id', otherUserId)
+      .from('friendships')
+      .select('user_a')
+      .eq('user_a', a)
+      .eq('user_b', b)
       .maybeSingle();
 
     if (direct) return 'friend';
 
-    // Check friend-of-friend
-    const { data: myFriends } = await this.db
-      .from('user_friends')
-      .select('friend_id')
-      .eq('user_id', userId);
+    // Check friend-of-friend: 自分の友達IDを取得
+    const { data: myFships } = await this.db
+      .from('friendships')
+      .select('user_a, user_b')
+      .or(`user_a.eq.${userId},user_b.eq.${userId}`);
 
-    if (myFriends) {
-      const friendIds = myFriends.map(f => f.friend_id);
-      const { data: mutual } = await this.db
-        .from('user_friends')
-        .select('user_id')
-        .eq('friend_id', otherUserId)
-        .in('user_id', friendIds)
-        .limit(1);
+    const friendIds = (myFships || []).map(f => f.user_a === userId ? f.user_b : f.user_a);
+    if (friendIds.length === 0) return null;
 
-      if (mutual && mutual.length > 0) {
-        // Find the mutual friend's name
-        const mutualFriendId = mutual[0].user_id;
-        const { data: mutualUser } = await this.db
-          .from('users')
-          .select('display_name')
-          .eq('id', mutualFriendId)
-          .single();
+    // otherUserIdの友達IDを取得して共通を探す
+    const { data: theirFships } = await this.db
+      .from('friendships')
+      .select('user_a, user_b')
+      .or(`user_a.eq.${otherUserId},user_b.eq.${otherUserId}`);
 
-        return mutualUser ? `${mutualUser.display_name}の友達` : '友達の友達';
-      }
+    const theirFriendIds = new Set((theirFships || []).map(f => f.user_a === otherUserId ? f.user_b : f.user_a));
+    const mutualFriendId = friendIds.find(fid => theirFriendIds.has(fid));
+
+    if (mutualFriendId) {
+      const { data: mutualUser } = await this.db
+        .from('users')
+        .select('display_name')
+        .eq('id', mutualFriendId)
+        .single();
+      return mutualUser ? `${mutualUser.display_name}の友達` : '友達の友達';
     }
 
     return null;
