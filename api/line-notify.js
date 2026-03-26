@@ -67,15 +67,18 @@ module.exports = async (req, res) => {
       }),
     });
 
-    const lineData = await lineRes.json().catch(() => ({}));
+    const lineStatus = lineRes.status;
+    const lineData = await lineRes.json().catch(() => null);
 
-    if (!lineRes.ok) {
-      console.error('LINE multicast error:', lineData);
-      // LINE側エラーでもアプリは継続（通知失敗は致命的でない）
-      return res.status(200).json({ ok: false, lineError: lineData, sent: 0 });
-    }
+    console.log('LINE multicast response:', lineStatus, JSON.stringify(lineData));
 
-    return res.status(200).json({ ok: true, sent: lineUserIds.length });
+    // LINEのステータスコード・ボディをそのままクライアントに返す
+    return res.status(lineStatus).json({
+      ok: lineRes.ok,
+      lineStatus,
+      lineBody: lineData,
+      sent: lineRes.ok ? lineUserIds.length : 0,
+    });
 
   } catch (err) {
     console.error('line-notify error:', err);
