@@ -18,10 +18,10 @@ module.exports = async (req, res) => {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' });
 
   try {
-    const { userIds, message } = req.body;
+    const { lineUserIds: directLineUserIds, userIds, message } = req.body;
 
-    if (!userIds || userIds.length === 0 || !message) {
-      return res.status(400).json({ error: 'Missing userIds or message' });
+    if ((!directLineUserIds?.length && !userIds?.length) || !message) {
+      return res.status(400).json({ error: 'Missing lineUserIds/userIds or message' });
     }
 
     if (!LINE_CHANNEL_ACCESS_TOKEN) {
@@ -29,21 +29,26 @@ module.exports = async (req, res) => {
       return res.status(200).json({ ok: true, sent: 0, reason: 'token_not_configured' });
     }
 
-    // 内部UUID → LINE userId を取得
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
-    const { data: users, error } = await supabase
-      .from('users')
-      .select('line_user_id')
-      .in('id', userIds);
+    let lineUserIds;
 
-    if (error) {
-      console.error('Supabase lookup error:', error);
-      return res.status(500).json({ error: error.message });
+    if (directLineUserIds && directLineUserIds.length > 0) {
+      // フロントエンドから直接 LINE user ID が渡された場合（推奨）
+      lineUserIds = directLineUserIds.filter(Boolean);
+    } else {
+      // 後方互換: 内部UUID → LINE user ID をサーバー側で解決
+      const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_KEY);
+      const { data: users, error } = await supabase
+        .from('users')
+        .select('line_user_id')
+        .in('id', userIds);
+
+      if (error) {
+        console.error('Supabase lookup error:', error);
+        return res.status(500).json({ error: error.message });
+      }
+
+      lineUserIds = (users || []).map(u => u.line_user_id).filter(Boolean);
     }
-
-    const lineUserIds = (users || [])
-      .map(u => u.line_user_id)
-      .filter(Boolean);
 
     if (lineUserIds.length === 0) {
       return res.status(200).json({ ok: true, sent: 0 });

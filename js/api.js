@@ -152,7 +152,7 @@ const API = {
     );
 
     // LINE push（fire-and-forget）
-    this.lineNotify(friendIds, `📅 ${userName} が「${plan.title}」を投稿したよ！\nasobiで確認してね`);
+    this.sendLineNotification(friendIds, `📅 ${userName} が「${plan.title}」を投稿したよ！\nasobiで確認してね`);
   },
 
   // 参加者更新通知（誰かが参加した時、主催者＋既存参加者へ通知）
@@ -185,20 +185,29 @@ const API = {
     );
 
     // LINE push（fire-and-forget）
-    this.lineNotify(notifyIds, `🙋 ${userName} が「${plan.title}」に参加しました！\nasobiで確認してね`);
+    this.sendLineNotification(notifyIds, `🙋 ${userName} が「${plan.title}」に参加しました！\nasobiで確認してね`);
   },
 
-  // LINE push通知（内部UUID配列 → /api/line-notify）
-  async lineNotify(userIds, message) {
+  // LINE push通知：内部UUID配列 → usersテーブルからline_user_idを取得 → /api/line-notify
+  async sendLineNotification(userIds, message) {
     if (!userIds || userIds.length === 0) return;
+
+    const { data: users } = await this.db
+      .from('users')
+      .select('line_user_id')
+      .in('id', userIds);
+
+    const lineUserIds = (users || []).map(u => u.line_user_id).filter(Boolean);
+    if (lineUserIds.length === 0) return;
+
     try {
       await fetch('/api/line-notify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userIds, message }),
+        body: JSON.stringify({ lineUserIds, message }),
       });
     } catch (e) {
-      console.error('lineNotify error:', e);
+      console.error('sendLineNotification error:', e);
     }
   },
 
